@@ -23,6 +23,7 @@
 #define KILL_PROCESS \
 		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_TRAP)
 
+
 extern int install_syscall_reporter(void);
 
 #endif

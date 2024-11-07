@@ -9,6 +9,9 @@
  * The code may be used by anyone for any purpose, and can serve as a
  * starting point for developing applications using mode 2 seccomp.
  */
+
+#ifdef SECCOMP
+
 #include "syscall-reporter.h"
 #include "syscall-names.h"
 
@@ -33,7 +36,6 @@ static void write_uint(char *buf, unsigned int val)
 
 static void reporter(int nr, siginfo_t *info, void *void_context)
 {
-#ifdef SECCOMP
 	char buf[128];
 	ucontext_t *ctx = (ucontext_t *)(void_context);
 	unsigned int syscall;
@@ -53,8 +55,8 @@ static void reporter(int nr, siginfo_t *info, void *void_context)
 	strcat(buf, "\n");
 	write(STDERR_FILENO, buf, strlen(buf));
 	_exit(1);
-#endif
 }
+#endif
 
 int install_syscall_reporter(void)
 {
