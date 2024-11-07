@@ -75,15 +75,17 @@ typedef struct {
 	CK_SLOT_ID slot;
 } SessionState;
 
-typedef struct _CallState {
+typedef struct _CallState CallState;
+
+struct _CallState {
 	GckRpcMessage *req;
 	GckRpcMessage *resp;
 	void *allocated;
 	uint64_t appid;
 	int call;
 	int sock;
-        int (*read)(void *cs, unsigned char *,size_t);
-        int (*write)(void *cs, unsigned char *,size_t);
+	int (*read)(CallState *cs, unsigned char *, size_t);
+	int (*write)(CallState *cs, unsigned char *, size_t);
 	struct sockaddr_storage addr;
 	socklen_t addrlen;
 	/* XXX Maybe sessions should be a linked list instead, to remove the hard
@@ -91,7 +93,7 @@ typedef struct _CallState {
 	 */
 	SessionState sessions[PKCS11PROXY_MAX_SESSION_COUNT];
 	GckRpcTlsPskState *tls;
-} CallState;
+};
 
 typedef struct _DispatchState {
 	struct _DispatchState *next;
@@ -2153,7 +2155,7 @@ static int dispatch_call(CallState * cs)
 	return 1;
 }
 
-static int read_all(CallState *cs, void *data, size_t len)
+static int read_all(CallState *cs, unsigned char *data, size_t len)
 {
 	int r;
 
@@ -2185,7 +2187,7 @@ static int read_all(CallState *cs, void *data, size_t len)
 	return 1;
 }
 
-static int write_all(CallState *cs, void *data, size_t len)
+static int write_all(CallState *cs, unsigned char *data, size_t len)
 {
 	int r;
 
@@ -2198,7 +2200,7 @@ static int write_all(CallState *cs, void *data, size_t len)
 		if (cs->tls)
 			r = gck_rpc_tls_write_all(cs->tls, (void *) data, len);
 		else
-                        r = send(cs->sock, data, len, MSG_NOSIGNAL);
+            r = send(cs->sock, data, len, MSG_NOSIGNAL);
 
 		if (r == -1) {
 			if (errno == EPIPE) {
@@ -2243,7 +2245,7 @@ static void run_dispatch_loop(CallState *cs)
 	}
 
 	/* The client application */
-	if (! cs->read(cs, (void *)&cs->appid, sizeof (cs->appid))) {
+	if (! cs->read(cs, (unsigned char *)&cs->appid, sizeof (cs->appid))) {
 		gck_rpc_warn("Can't read appid\n");
 		return ;
 	}
@@ -2371,8 +2373,8 @@ void gck_rpc_layer_accept(GckRpcTlsPskState *tls)
 	}
 
 	ds->cs.sock = new_fd;
-        ds->cs.read = &read_all;
-        ds->cs.write = &write_all;
+	ds->cs.read = &read_all;
+	ds->cs.write = &write_all;
 	ds->cs.addr = addr;
 	ds->cs.addrlen = addrlen;
 	ds->cs.tls = tls;
@@ -2391,13 +2393,13 @@ void gck_rpc_layer_accept(GckRpcTlsPskState *tls)
 	pthread_mutex_unlock(&pkcs11_dispatchers_mutex);
 }
 
-static int _inetd_read(CallState *cs, void *data, size_t len)
+static int _inetd_read(CallState *cs, unsigned char *data, size_t len)
 {
 	assert(cs->sock >= 0);
 	return read(cs->sock, data, len);
 }
 
-static int _inetd_write(CallState *cs, void *data, size_t len)
+static int _inetd_write(CallState *cs, unsigned char *data, size_t len)
 {
 	assert(cs->sock >= 0);
 	return write(cs->sock, data, len);
