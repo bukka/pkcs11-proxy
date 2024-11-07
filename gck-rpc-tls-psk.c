@@ -34,6 +34,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <string.h>
 
 /* TLS pre-shared key */
 static char tls_psk_identity[128] = { 0, };
