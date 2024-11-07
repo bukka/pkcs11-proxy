@@ -266,10 +266,24 @@ gck_rpc_init_tls_psk(GckRpcTlsPskState *state, const char *key_filename,
 
 	assert(caller == GCK_RPC_TLS_PSK_CLIENT || caller == GCK_RPC_TLS_PSK_SERVER);
 
-	state->ssl_ctx = SSL_CTX_new(TLSv1_2_method());
+	state->ssl_ctx = SSL_CTX_new(TLS_method());
 
 	if (state->ssl_ctx == NULL) {
 		gck_rpc_warn("can't initialize SSL_CTX");
+		return 0;
+	}
+
+	/* Set minimal version to TLS 1.2 */
+	if (!SSL_CTX_set_min_proto_version(state->ssl_ctx, TLS1_2_VERSION))	{
+		SSL_CTX_free(state->ssl_ctx);
+		gck_rpc_warn("cannot set minimal protocol version to TLS 1.2");
+		return 0;
+	}
+
+	/* Set maximal version to TLS 1.2 */
+	if (!SSL_CTX_set_max_proto_version(state->ssl_ctx, TLS1_2_VERSION))	{
+		SSL_CTX_free(state->ssl_ctx);
+		gck_rpc_warn("cannot set maximal protocol version to TLS 1.2");
 		return 0;
 	}
 

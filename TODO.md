@@ -12,11 +12,15 @@
 
 ## Proxy
 
-- Support more complex mechanisms
+- Module/Dispatcher: Support more complex mechanisms
+- TLS: Support TLS 1.3
+- TLS: Add cert support
 
 ## Tests and tools
 
 - Create integration test framework
+  - Presetting and clean up of SoftHSM
+  - Use python-pkcs11 for PKCS#11 testing
 - Move p11proxy-mitm to the tools directory
 - Introduce Clan formatter and reformat code
 
