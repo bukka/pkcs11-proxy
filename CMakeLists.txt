@@ -1,6 +1,5 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.5)
 project(pkcs11-proxy C)
-
 # Ensure compatibility with older CMake policies
 if (COMMAND cmake_policy)
     cmake_policy(SET CMP0003 NEW)
@@ -29,13 +28,23 @@ set(PKCS11_DAEMON_SRCS
 # Compiler flags
 add_compile_options(-Wall)
 
+# Find and link OpenSSL (require 1.1.1+)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(OPENSSL REQUIRED openssl>=1.1.1)
+
+# Ensure linker uses pkg-config paths explicitly
+include_directories(${OPENSSL_INCLUDE_DIRS})
+link_directories(${OPENSSL_LIBRARY_DIRS}) # Ensure library paths are included
+
 # Define shared library for pkcs11-proxy
 add_library(pkcs11-proxy SHARED ${PKCS11_PROXY_SRCS})
 set_target_properties(pkcs11-proxy PROPERTIES VERSION 0.1 SOVERSION 0)
 
+# Link OpenSSL and other necessary libraries
+target_link_libraries(pkcs11-proxy ${OPENSSL_LIBRARIES} pthread)
+
 # Define executable for pkcs11-daemon
 if (WIN32)
-    # Disable console for release build on Win32
     set(GUI_TYPE "")
     if ("${CMAKE_BUILD_TYPE}" MATCHES "^Rel.*")
         set(GUI_TYPE WIN32)
@@ -45,22 +54,17 @@ else()
     add_executable(pkcs11-daemon ${PKCS11_DAEMON_SRCS})
 endif()
 
-# Find and link OpenSSL (require 1.1.1+)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(OPENSSL REQUIRED openssl>=1.1.1)
+# Link OpenSSL and other necessary libraries to the daemon
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(pkcs11-daemon ${OPENSSL_LIBRARIES} dl pthread seccomp)
+else()
+    target_link_libraries(pkcs11-daemon ${OPENSSL_LIBRARIES} dl pthread)
+endif()
 
-# Include directories and link libraries
-target_include_directories(pkcs11-proxy PRIVATE ${OPENSSL_INCLUDE_DIRS})
-target_include_directories(pkcs11-daemon PRIVATE ${OPENSSL_INCLUDE_DIRS})
-
-target_link_libraries(pkcs11-proxy ${OPENSSL_LIBRARIES} pthread)
-target_link_libraries(pkcs11-daemon ${OPENSSL_LIBRARIES} dl pthread seccomp)
-
+# Win32-specific settings (if required)
 if (WIN32)
-    # Additional Win32 libraries and paths
     include_directories("ext/include")
     
-    # Static library for `dl`
     add_library(dl STATIC IMPORTED)
     set_property(TARGET dl PROPERTY IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/ext/lib/libdl.a)
     
