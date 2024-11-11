@@ -13,3 +13,4 @@ Trolltech.conf
 obj-i686-linux-gnu
 syscall-names.h
 venv/
+__pycache__/
