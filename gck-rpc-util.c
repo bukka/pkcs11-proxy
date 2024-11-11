@@ -90,6 +90,17 @@ gck_rpc_mechanism_list_purge(CK_MECHANISM_TYPE_PTR mechs, CK_ULONG * n_mechs)
 	}
 }
 
+int gck_rpc_mechanism_is_edch_derive(CK_MECHANISM_TYPE type)
+{
+	switch (type) {
+	case CKM_ECDH1_COFACTOR_DERIVE:
+	case CKM_ECDH1_DERIVE:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
 int gck_rpc_mechanism_has_sane_parameters(CK_MECHANISM_TYPE type)
 {
 	/* This list is incomplete */

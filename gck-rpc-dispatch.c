@@ -642,8 +642,17 @@ static CK_RV proto_read_mechanism(CallState * cs, CK_MECHANISM_PTR mech)
 		return PARSE_ERROR;
 
 	mech->mechanism = value;
-	mech->pParameter = (CK_VOID_PTR) data;
-	mech->ulParameterLen = n_data;
+	if (gck_rpc_mechanism_is_edch_derive(mech->mechanism)) {
+		CK_ECDH1_DERIVE_PARAMS_PTR deriveParams = (CK_ECDH1_DERIVE_PARAMS_PTR) mech->pParameter;
+		deriveParams->kdf = CKD_NULL;
+		deriveParams->ulSharedDataLen = 0;
+		deriveParams->pSharedData = NULL;
+		deriveParams->ulPublicDataLen = n_data;
+		deriveParams->pPublicData = (unsigned char *) data;
+	} else {
+		mech->pParameter = (CK_VOID_PTR) data;
+		mech->ulParameterLen = n_data;
+	}
 	return CKR_OK;
 }
 

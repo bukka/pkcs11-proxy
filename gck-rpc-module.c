@@ -1032,8 +1032,28 @@ static CK_RV proto_write_mechanism(GckRpcMessage * msg, CK_MECHANISM_PTR mech)
 	else if (gck_rpc_mechanism_has_sane_parameters(mech->mechanism))
 		egg_buffer_add_byte_array(&msg->buffer, mech->pParameter,
 					  mech->ulParameterLen);
-	else
+	else if (gck_rpc_mechanism_is_edch_derive(mech->mechanism)) {
+		CK_ECDH1_DERIVE_PARAMS_PTR deriveParams = (CK_ECDH1_DERIVE_PARAMS_PTR) mech->pParameter;
+		if (deriveParams->kdf != CKD_NULL) {
+			/* currently no KDF machenisms are supported */
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+		if (deriveParams->ulSharedDataLen != 0 ||
+			deriveParams->pSharedData != NULL_PTR) {
+			/* shared data is not supported as it makes sense only if KDF set */
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+		if (deriveParams->ulPublicDataLen == 0 ||
+			deriveParams->pPublicData == NULL_PTR) {
+			/* there must be a public data */
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+		egg_buffer_add_byte_array(&msg->buffer,
+			deriveParams->pPublicData,
+			deriveParams->ulPublicDataLen);
+	} else {
 		return CKR_MECHANISM_INVALID;
+	}
 
 	return egg_buffer_has_error(&msg->buffer) ? CKR_HOST_MEMORY : CKR_OK;
 }
