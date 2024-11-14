@@ -1,7 +1,10 @@
 asn1crypto==1.5.1
 cached-property==2.0.1
+cffi==1.17.1
+cryptography==43.0.3
 iniconfig==2.0.0
 packaging==24.2
 pluggy==1.5.0
+pycparser==2.22
 pytest==8.3.3
 python-pkcs11==0.7.0

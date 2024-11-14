@@ -1,13 +1,17 @@
 import pytest
 import pkcs11
-from pkcs11 import KeyType, Mechanism
+import pkcs11.util.ec
+from pkcs11 import Attribute, KeyType, Mechanism, KDF
 import subprocess
 import os
 import platform
 import time
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
 
 def get_pkcs11_library_path():
-    pkcs11_lib = os.getenv("PKCS11_LIB")
+    pkcs11_lib = os.getenv("PKCS11_TEST_LIB")
     if pkcs11_lib and os.path.exists(pkcs11_lib):
         return pkcs11_lib
     default_paths = [
@@ -17,10 +21,17 @@ def get_pkcs11_library_path():
     for path in default_paths:
         if os.path.exists(path):
             return path
-    pytest.fail("PKCS11 library not found. Set PKCS11_LIB or install SoftHSM.")
+    pytest.fail("PKCS11 library not found. Set PKCS11_TEST_LIB or install SoftHSM.")
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_pkcs11_proxy_lib():
+    # Check if PKCS11_TEST_NO_PROXY is set
+    if os.getenv("PKCS11_TEST_NO_PROXY"):
+        # Use SoftHSM directly without starting pkcs11-daemon
+        pkcs11_lib = get_pkcs11_library_path()
+        yield pkcs11_lib
+        return
+
     build_dir = os.path.join(os.path.dirname(__file__), "../build")
     pkcs11_daemon_path = os.path.join(build_dir, "pkcs11-daemon")
     
@@ -67,3 +78,46 @@ def test_encrypt_decrypt(pkcs11_session):
     message = b"Secret Message"
     encrypted = public_key.encrypt(message, mechanism=Mechanism.RSA_PKCS)
     decrypted = private_key.decrypt(encrypted, mechanism=Mechanism.RSA_PKCS)
+
+def test_derive_key_ecdh(pkcs11_session):
+    # Generate an EC key pair in PKCS#11
+    ecparams = pkcs11_session.create_domain_parameters(
+        pkcs11.KeyType.EC, {
+            pkcs11.Attribute.EC_PARAMS: pkcs11.util.ec.encode_named_curve_parameters('secp256r1'),
+        }, local=True)
+    ec_public_key, ec_private_key = ecparams.generate_keypair(store=True,
+                                          label="TestECKey")
+
+    # Generate Alice's key pair in PKCS#11
+    alice_public_key, alice_private_key = ecparams.generate_keypair(store=True, label="TestECKey")
+    alices_value = alice_public_key[Attribute.EC_POINT]
+
+    alice_public_key_cryptography = ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), alices_value)
+    # Convert back to uncompressed point format
+    alices_value_clean = alice_public_key_cryptography.public_bytes(
+        encoding=serialization.Encoding.X962,
+        format=serialization.PublicFormat.UncompressedPoint
+    )
+
+    # Generate Bob's EC key pair in `cryptography`
+    bob_private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
+    bob_public_key = bob_private_key.public_key()
+
+    # Export Bob's public key to DER format and decode the EC point to match PKCS#11 format
+    bobs_public_key_bytes = bob_public_key.public_bytes(
+        encoding=serialization.Encoding.X962,
+        format=serialization.PublicFormat.UncompressedPoint
+    )
+
+    # Get Alice's secret
+    session_key_alice = alice_private_key.derive_key(
+        KeyType.AES, 128,
+        mechanism_param=(KDF.NULL, None, bobs_public_key_bytes)
+    )
+
+    # Bob derives the shared secret using Alice's public value in `cryptography`
+    shared_secret_bob = bob_private_key.exchange(ec.ECDH(), ec.EllipticCurvePublicKey.from_encoded_point(
+        ec.SECP256R1(), alices_value_clean))
+
+    # Compare the shared secrets to ensure they match
+    assert session_key_alice == shared_secret_bob
