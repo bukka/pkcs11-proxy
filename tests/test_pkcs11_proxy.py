@@ -6,6 +6,7 @@ import subprocess
 import os
 import platform
 import time
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
@@ -92,12 +93,8 @@ def test_derive_key_ecdh(pkcs11_session):
     alice_public_key, alice_private_key = ecparams.generate_keypair(store=True, label="TestECKey")
     alices_value = alice_public_key[Attribute.EC_POINT]
 
-    alice_public_key_cryptography = ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), alices_value)
     # Convert back to uncompressed point format
-    alices_value_clean = alice_public_key_cryptography.public_bytes(
-        encoding=serialization.Encoding.X962,
-        format=serialization.PublicFormat.UncompressedPoint
-    )
+    alices_value_clean = alices_value[2:]
 
     # Generate Bob's EC key pair in `cryptography`
     bob_private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
@@ -119,5 +116,17 @@ def test_derive_key_ecdh(pkcs11_session):
     shared_secret_bob = bob_private_key.exchange(ec.ECDH(), ec.EllipticCurvePublicKey.from_encoded_point(
         ec.SECP256R1(), alices_value_clean))
 
-    # Compare the shared secrets to ensure they match
-    assert session_key_alice == shared_secret_bob
+    # Use AES-CBC for encryption with Alice's session key
+    iv = os.urandom(16)
+    plaintext = b"Test message for ECDH key agreement verification"
+
+    # Alist encrypts the key - AES_CBC_PAD is default
+    ciphertext = session_key_alice.encrypt(plaintext, mechanism_param=iv)
+
+    # Bob tries to decrypt the message using his derived key
+    cipher = Cipher(algorithms.AES(shared_secret_bob), modes.CBC(iv))
+    decryptor = cipher.decryptor()
+    decrypted_text = decryptor.update(ciphertext) + decryptor.finalize()
+
+    # Verify that the decrypted text matches the original plaintext
+    assert decrypted_text == plaintext
