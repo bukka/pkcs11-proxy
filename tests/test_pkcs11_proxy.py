@@ -81,27 +81,22 @@ def test_encrypt_decrypt(pkcs11_session):
     decrypted = private_key.decrypt(encrypted, mechanism=Mechanism.RSA_PKCS)
 
 def test_derive_key_ecdh(pkcs11_session):
-    # Generate an EC key pair in PKCS#11
+    # Generate Alice's EC key pair in PKCS#11
     ecparams = pkcs11_session.create_domain_parameters(
         pkcs11.KeyType.EC, {
             pkcs11.Attribute.EC_PARAMS: pkcs11.util.ec.encode_named_curve_parameters('secp256r1'),
         }, local=True)
-    ec_public_key, ec_private_key = ecparams.generate_keypair(store=True,
-                                          label="TestECKey")
-
-    # Generate Alice's key pair in PKCS#11
     alice_public_key, alice_private_key = ecparams.generate_keypair(store=True, label="TestECKey")
-    alices_value = alice_public_key[Attribute.EC_POINT]
-
-    # Convert back to uncompressed point format
-    alices_value_clean = alices_value[2:]
+    alices_value_raw = alice_public_key[Attribute.EC_POINT]
+    # Strip first two extra bytes
+    alices_value = alices_value_raw[2:]
 
     # Generate Bob's EC key pair in `cryptography`
     bob_private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
     bob_public_key = bob_private_key.public_key()
 
     # Export Bob's public key to DER format and decode the EC point to match PKCS#11 format
-    bobs_public_key_bytes = bob_public_key.public_bytes(
+    bobs_value = bob_public_key.public_bytes(
         encoding=serialization.Encoding.X962,
         format=serialization.PublicFormat.UncompressedPoint
     )
@@ -109,12 +104,12 @@ def test_derive_key_ecdh(pkcs11_session):
     # Get Alice's secret
     session_key_alice = alice_private_key.derive_key(
         KeyType.AES, 128,
-        mechanism_param=(KDF.NULL, None, bobs_public_key_bytes)
+        mechanism_param=(KDF.NULL, None, bobs_value)
     )
 
     # Bob derives the shared secret using Alice's public value in `cryptography`
     shared_secret_bob = bob_private_key.exchange(ec.ECDH(), ec.EllipticCurvePublicKey.from_encoded_point(
-        ec.SECP256R1(), alices_value_clean))
+        ec.SECP256R1(), alices_value))
 
     # Use AES-CBC for encryption with Alice's session key
     iv = os.urandom(16)
