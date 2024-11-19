@@ -71,14 +71,14 @@ def pkcs11_session(setup_pkcs11_proxy_lib):
     with token.open(user_pin="1234", rw=True) as session:
         yield session
 
-def test_generate_rsa_keypair(pkcs11_session):
+def test_rsa_generate_keypair(pkcs11_session):
     public_key, private_key = pkcs11_session.generate_keypair(
         KeyType.RSA, 2048, store=True, label="TestRSAKey"
     )
     assert public_key is not None
     assert private_key is not None
 
-def test_encrypt_decrypt(pkcs11_session):
+def test_rsa_encrypt_decrypt(pkcs11_session):
     public_key, private_key = pkcs11_session.generate_keypair(
         KeyType.RSA, 2048, store=True, label="TestRSAKey"
     )
@@ -86,7 +86,9 @@ def test_encrypt_decrypt(pkcs11_session):
     encrypted = public_key.encrypt(message, mechanism=Mechanism.RSA_PKCS)
     decrypted = private_key.decrypt(encrypted, mechanism=Mechanism.RSA_PKCS)
 
-def test_derive_key_ecdh(pkcs11_session):
+    assert message == decrypted
+
+def test_ecdh_derive_key(pkcs11_session):
     # Generate Alice's EC key pair in PKCS#11
     ecparams = pkcs11_session.create_domain_parameters(
         pkcs11.KeyType.EC, {
