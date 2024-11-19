@@ -7,7 +7,7 @@ endif()
 
 # Set build options
 option(ENABLE_DEBUG "Enable debug symbols (default: ON)" ON)
-option(ENABLE_OPTIMIZATION "Enable optimizations (default: OFF)" OFF)
+option(ENABLE_OPTIMIZATION "Enable optimizations (default: ON)" ON)
 
 # Set source files for the proxy and daemon
 set(PKCS11_PROXY_SRCS
@@ -32,12 +32,12 @@ set(PKCS11_DAEMON_SRCS
 # Compiler flags
 add_compile_options(-Wall)
 
-# Always include debug symbols
+# Include debug symbols
 if (ENABLE_DEBUG)
     add_compile_options(-g)
 endif()
 
-# Enable optimizations if requested
+# Enable optimization
 if (ENABLE_OPTIMIZATION)
     add_compile_options(-O2)
 endif()
