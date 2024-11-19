@@ -312,31 +312,31 @@ int main(int argc, char *argv[])
 	 * we expect to call from here on. Anything not whitelisted will cause the
 	 * process to terminate.
 	 */
-        if (install_syscall_filter(sock, tls_psk_keyfile, path))
-        	return 1;
+	if (install_syscall_filter(sock, tls_psk_keyfile, path))
+		return 1;
 
-        if (mode == GCP_RPC_DAEMON_MODE_INETD) {
-           gck_rpc_layer_inetd(funcs);
-        } else if (mode == GCP_RPC_DAEMON_MODE_SOCKET) {
-	   is_running = 1;
-	   while (is_running) {
-		FD_ZERO(&read_fds);
-		FD_SET(sock, &read_fds);
-		ret = select(sock + 1, &read_fds, NULL, NULL, NULL);
-		if (ret < 0) {
-			if (errno == EINTR)
-				continue;
-			fprintf(stderr, "error watching socket: %s\n",
-				strerror(errno));
-			exit(1);
+	if (mode == GCP_RPC_DAEMON_MODE_INETD) {
+		gck_rpc_layer_inetd(funcs);
+	} else if (mode == GCP_RPC_DAEMON_MODE_SOCKET) {
+		is_running = 1;
+		while (is_running) {
+			FD_ZERO(&read_fds);
+			FD_SET(sock, &read_fds);
+			ret = select(sock + 1, &read_fds, NULL, NULL, NULL);
+			if (ret < 0) {
+				if (errno == EINTR)
+					continue;
+				fprintf(stderr, "error watching socket: %s\n",
+					strerror(errno));
+				exit(1);
+			}
+
+			if (FD_ISSET(sock, &read_fds))
+				gck_rpc_layer_accept(tls);
 		}
 
-		if (FD_ISSET(sock, &read_fds))
-			gck_rpc_layer_accept(tls);
-	   }
-
-	   gck_rpc_layer_uninitialize();
-        } else {
+		gck_rpc_layer_uninitialize();
+	} else {
 		/* Not reached */
 		exit(-1);
 	}
