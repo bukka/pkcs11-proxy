@@ -1,0 +1,47 @@
+name: CI for pkcs11-proxy
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y softhsm2 gcc cmake
+
+      - name: Build pkcs11-proxy
+        run: |
+          mkdir build
+          cd build
+          cmake ..
+          make
+
+      - name: Set up SoftHSM2
+        run: |
+          cd tests
+          ./setup-softhsm2.sh
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r tests/requirements.txt
+
+      - name: Run tests
+        run: |
+          pytest
