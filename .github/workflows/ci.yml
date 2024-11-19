@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y softhsm2 gcc cmake
+          sudo apt-get install -y softhsm2 gcc cmake libseccomp-dev libssl-dev
 
       - name: Build pkcs11-proxy
         run: |
