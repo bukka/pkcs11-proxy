@@ -1,16 +1,25 @@
+# build
 build/
 *.o
 moc_*.cpp
 ui_*.h
-*~
 vb-agent
 res/.directory
-.\#*
-\#*#
 Makefile
 CMakeFiles
 Trolltech.conf
 obj-i686-linux-gnu
 syscall-names.h
+
+# tests
 venv/
 __pycache__/
+softhsm2.conf
+tokens/
+
+# editors
+.\#*
+\#*#
+*~
+.idea
+.vscode

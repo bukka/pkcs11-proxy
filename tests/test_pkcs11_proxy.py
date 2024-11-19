@@ -11,6 +11,9 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
+def get_softhsm2_conf():
+    return os.path.join(os.path.dirname(__file__), "softhsm2.conf")
+
 def get_pkcs11_library_path():
     pkcs11_lib = os.getenv("PKCS11_TEST_LIB")
     if pkcs11_lib and os.path.exists(pkcs11_lib):
@@ -26,6 +29,8 @@ def get_pkcs11_library_path():
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_pkcs11_proxy_lib():
+    # Set SOFTHSM2_CONF path
+    os.environ["SOFTHSM2_CONF"] = os.path.join(os.path.dirname(__file__), "softhsm2.conf")
     # Check if PKCS11_TEST_NO_PROXY is set
     if os.getenv("PKCS11_TEST_NO_PROXY"):
         # Use SoftHSM directly without starting pkcs11-daemon
@@ -50,6 +55,9 @@ def setup_pkcs11_proxy_lib():
     daemon_process = subprocess.Popen([
         pkcs11_daemon_path, pkcs11_lib
     ], env={**os.environ, "PKCS11_DAEMON_SOCKET": "tcp://127.0.0.1:2345"})
+
+    # Set PKCS11_PROXY_SOCKET for the proxy library to connect to the daemon
+    os.environ["PKCS11_PROXY_SOCKET"] = "tcp://127.0.0.1:2345"
     
     time.sleep(0.5)
     yield proxy_lib_path
@@ -57,8 +65,6 @@ def setup_pkcs11_proxy_lib():
 
 @pytest.fixture
 def pkcs11_session(setup_pkcs11_proxy_lib):
-    # Set PKCS11_PROXY_SOCKET for the proxy library to connect to the daemon
-    os.environ["PKCS11_PROXY_SOCKET"] = "tcp://127.0.0.1:2345"
     lib = pkcs11.lib(setup_pkcs11_proxy_lib)
     token = lib.get_token(token_label="ProxyTestToken")
     
