@@ -5,6 +5,10 @@ if (COMMAND cmake_policy)
     cmake_policy(SET CMP0003 NEW)
 endif()
 
+# Set build options
+option(ENABLE_DEBUG "Enable debug symbols (default: ON)" ON)
+option(ENABLE_OPTIMIZATION "Enable optimizations (default: OFF)" OFF)
+
 # Set source files for the proxy and daemon
 set(PKCS11_PROXY_SRCS
     gck-rpc-module.c
@@ -27,6 +31,16 @@ set(PKCS11_DAEMON_SRCS
 
 # Compiler flags
 add_compile_options(-Wall)
+
+# Always include debug symbols
+if (ENABLE_DEBUG)
+    add_compile_options(-g)
+endif()
+
+# Enable optimizations if requested
+if (ENABLE_OPTIMIZATION)
+    add_compile_options(-O2)
+endif()
 
 # Find and link OpenSSL (require 1.1.1+)
 find_package(PkgConfig REQUIRED)
