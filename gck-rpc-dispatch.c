@@ -643,13 +643,14 @@ static CK_RV proto_read_mechanism(CallState * cs, CK_MECHANISM_PTR mech)
 
 	mech->mechanism = value;
 	if (gck_rpc_mechanism_is_edch_derive(mech->mechanism)) {
-		mech->ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
-		CK_ECDH1_DERIVE_PARAMS_PTR deriveParams = (CK_ECDH1_DERIVE_PARAMS_PTR) mech->pParameter;
+		CK_ECDH1_DERIVE_PARAMS_PTR deriveParams = call_alloc(cs, sizeof(CK_ECDH1_DERIVE_PARAMS));
 		deriveParams->kdf = CKD_NULL;
 		deriveParams->ulSharedDataLen = 0;
 		deriveParams->pSharedData = NULL;
 		deriveParams->ulPublicDataLen = n_data;
 		deriveParams->pPublicData = (unsigned char *) data;
+		mech->ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
+		mech->pParameter = deriveParams;
 	} else {
 		mech->pParameter = (CK_VOID_PTR) data;
 		mech->ulParameterLen = n_data;
