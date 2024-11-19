@@ -4,8 +4,7 @@ directories.tokendir = __BASE_DIR__/tokens/
 objectstore.backend = file
 
 # ERROR, WARNING, INFO, DEBUG
-log.level = DEBUG
-
+log.level = WARNING
 
 # If CKF_REMOVABLE_DEVICE flag should be set
 slots.removable = false
