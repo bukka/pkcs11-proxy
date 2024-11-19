@@ -457,8 +457,8 @@ static CK_RV call_connect(CallState * cs)
 		}
 	} else {
 		addr.sun_family = AF_UNIX;
-		strncpy(addr.sun_path, pkcs11_socket_path,
-			sizeof(addr.sun_path));
+		strncpy(addr.sun_path, pkcs11_socket_path, sizeof(addr.sun_path));
+		addr.sun_path[sizeof(addr.sun_path) - 1] = '\0';
 
 		sock = socket(AF_UNIX, SOCK_STREAM, 0);
 		if (sock < 0) {

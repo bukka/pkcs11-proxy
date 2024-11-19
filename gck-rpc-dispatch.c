@@ -2593,8 +2593,8 @@ int gck_rpc_layer_initialize(const char *prefix, CK_FUNCTION_LIST_PTR module)
 
 		addr.sun_family = AF_UNIX;
 		unlink(pkcs11_socket_path);
-		strncpy(addr.sun_path, pkcs11_socket_path,
-			sizeof(addr.sun_path));
+		strncpy(addr.sun_path, pkcs11_socket_path, sizeof(addr.sun_path));
+		addr.sun_path[sizeof(addr.sun_path) - 1] = '\0';
 
 		if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 			gck_rpc_warn("couldn't bind to pkcs11 socket: %s: %s",
