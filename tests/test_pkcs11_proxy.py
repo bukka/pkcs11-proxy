@@ -52,16 +52,20 @@ def setup_pkcs11_proxy_lib():
 
     pkcs11_lib = get_pkcs11_library_path()
 
-    daemon_process = subprocess.Popen([
-        pkcs11_daemon_path, pkcs11_lib
-    ], env={**os.environ, "PKCS11_DAEMON_SOCKET": "tcp://127.0.0.1:2345"})
+    if not os.getenv("PKCS11_TEST_NO_DAEMON"):
+        daemon_process = subprocess.Popen([
+            pkcs11_daemon_path, pkcs11_lib
+        ], env={**os.environ, "PKCS11_DAEMON_SOCKET": "tcp://127.0.0.1:2345"})
+    else:
+        daemon_process = None
 
     # Set PKCS11_PROXY_SOCKET for the proxy library to connect to the daemon
     os.environ["PKCS11_PROXY_SOCKET"] = "tcp://127.0.0.1:2345"
     
     time.sleep(0.5)
     yield proxy_lib_path
-    daemon_process.terminate()
+    if daemon_process:
+        daemon_process.terminate()
 
 @pytest.fixture
 def pkcs11_session(setup_pkcs11_proxy_lib):
