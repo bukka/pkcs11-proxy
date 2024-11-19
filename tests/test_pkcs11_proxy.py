@@ -9,7 +9,7 @@ import time
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import padding, serialization
 
 def get_softhsm2_conf():
     return os.path.join(os.path.dirname(__file__), "softhsm2.conf")
@@ -109,7 +109,7 @@ def test_derive_key_ecdh(pkcs11_session):
 
     # Get Alice's secret
     session_key_alice = alice_private_key.derive_key(
-        KeyType.AES, 128,
+        KeyType.AES, 256,
         mechanism_param=(KDF.NULL, None, bobs_value)
     )
 
@@ -127,7 +127,11 @@ def test_derive_key_ecdh(pkcs11_session):
     # Bob tries to decrypt the message using his derived key
     cipher = Cipher(algorithms.AES(shared_secret_bob), modes.CBC(iv))
     decryptor = cipher.decryptor()
-    decrypted_text = decryptor.update(ciphertext) + decryptor.finalize()
+    decrypted_text_padded = decryptor.update(ciphertext) + decryptor.finalize()
+
+    # Unpad the decrypted text
+    unpadder = padding.PKCS7(128).unpadder()
+    decrypted_text = unpadder.update(decrypted_text_padded) + unpadder.finalize()
 
     # Verify that the decrypted text matches the original plaintext
     assert decrypted_text == plaintext
