@@ -92,6 +92,41 @@ def test_rsa_encrypt_decrypt(pkcs11_session):
 
     assert message == decrypted
 
+def test_ecdsa_key_load_and_sign_verify(pkcs11_session):
+    # Load the private key created during setup by label
+    private_key = pkcs11_session.get_key(
+        label="ProxyTestExistingECKey",
+        key_type=KeyType.EC,
+        object_class=pkcs11.ObjectClass.PRIVATE_KEY
+    )
+    assert private_key is not None, "Failed to load private key"
+
+    # Load the corresponding public key by label
+    public_key = pkcs11_session.get_key(
+        label="ProxyTestExistingECKey",
+        key_type=KeyType.EC,
+        object_class=pkcs11.ObjectClass.PUBLIC_KEY
+    )
+    assert public_key is not None, "Failed to load public key"
+
+    # Message to sign
+    message = b"Message to be signed using ECDSA"
+
+    # Sign the message using the private key
+    signature = private_key.sign(
+        message,
+        mechanism=Mechanism.ECDSA
+    )
+    assert signature is not None, "Signature generation failed"
+
+    # Verify the signature using the public key
+    is_valid = public_key.verify(
+        message,
+        signature,
+        mechanism=Mechanism.ECDSA
+    )
+    assert is_valid, "Signature verification failed"
+
 def test_ecdh_derive_key(pkcs11_session):
     # Generate Alice's EC key pair in PKCS#11
     ecparams = pkcs11_session.create_domain_parameters(
