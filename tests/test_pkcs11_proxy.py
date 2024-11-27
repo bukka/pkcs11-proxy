@@ -176,3 +176,7 @@ def test_ecdh_derive_key(pkcs11_session):
 
     # Verify that the decrypted text matches the original plaintext
     assert decrypted_text == plaintext
+
+def test_mechanism_list_contains_ecdh(pkcs11_session):
+    mechanisms = pkcs11_session.token.slot.get_mechanisms()
+    assert Mechanism.ECDH1_DERIVE in mechanisms, "ECDH1_DERIVE mechanism is not supported by the token"

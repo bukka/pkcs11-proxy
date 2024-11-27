@@ -62,10 +62,9 @@ void gck_rpc_debug(const char *msg, ...)
 
 int gck_rpc_mechanism_is_supported(CK_MECHANISM_TYPE mech)
 {
-	if (gck_rpc_mechanism_has_no_parameters(mech) ||
-	    gck_rpc_mechanism_has_sane_parameters(mech))
-		return 1;
-	return 0;
+	return gck_rpc_mechanism_has_no_parameters(mech) ||
+			gck_rpc_mechanism_has_sane_parameters(mech) ||
+			gck_rpc_mechanism_is_edch_derive(mech);
 }
 
 void
@@ -77,8 +76,7 @@ gck_rpc_mechanism_list_purge(CK_MECHANISM_TYPE_PTR mechs, CK_ULONG * n_mechs)
 	assert(n_mechs);
 
 	for (i = 0; i < (int)(*n_mechs); ++i) {
-		if (!gck_rpc_mechanism_has_no_parameters(mechs[i]) &&
-		    !gck_rpc_mechanism_has_sane_parameters(mechs[i])) {
+		if (!gck_rpc_mechanism_is_supported(mechs[i])) {
 
 			/* Remove the mechanism from the list */
 			memmove(&mechs[i], &mechs[i + 1],
