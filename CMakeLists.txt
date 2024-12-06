@@ -11,6 +11,7 @@ option(ENABLE_OPTIMIZATION "Enable optimizations (default: ON)" ON)
 
 # Set source files for the proxy and daemon
 set(PKCS11_PROXY_SRCS
+    gck-rpc-conf.c
     gck-rpc-module.c
     gck-rpc-message.c
     gck-rpc-util.c
@@ -20,6 +21,7 @@ set(PKCS11_PROXY_SRCS
 
 set(PKCS11_DAEMON_SRCS
     egg-buffer.c
+    gck-rpc-conf.c
     gck-rpc-daemon-standalone.c
     gck-rpc-dispatch.c
     gck-rpc-message.c
