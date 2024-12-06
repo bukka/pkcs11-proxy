@@ -363,11 +363,7 @@ static int _connect_to_host_port(char *host, char *port)
 		sock = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
 
 		if (sock >= 0) {
-			if (setsockopt(sock, IPPROTO_TCP, TCP_NODELAY,
-				       (char *)&one, sizeof (one)) == -1) {
-				gck_rpc_warn("couldn't set pkcs11 "
-					     "socket protocol options (%.100s): %.100s",
-					     hostport, strerror (errno));
+			if (!gck_rpc_set_common_sock_options(sock, host, port)) {
 				goto next;
 			}
 
