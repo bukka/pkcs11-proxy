@@ -32,12 +32,13 @@
 #define GCK_RPC_LINE_BUFFER_SIZE 1024
 
 typedef struct {
-	char so_path[256];
+	char so_path[1024];
+	int so_recv_timeout;
 	bool so_keepalive;
 	int tcp_keepidle;
 	int tcp_keepintvl;
 	int tcp_keepcnt;
-	char psk_file[256];
+	char psk_file[2048];
 } gck_rpc_config_t;
 
 static gck_rpc_config_t gck_rpc_config;
@@ -82,6 +83,7 @@ static struct {
 	void (*setter)(const char *raw_value, void *dest);
 } gck_rpc_config_options[] = {
 	{"so_path", gck_rpc_config.so_path, gck_rpc_set_string},
+	{"so_recv_timeout", &gck_rpc_config.so_recv_timeout, gck_rpc_set_int},
 	{"so_keepalive", &gck_rpc_config.so_keepalive, gck_rpc_set_bool},
 	{"tcp_keepidle", &gck_rpc_config.tcp_keepidle, gck_rpc_set_int},
 	{"tcp_keepintvl", &gck_rpc_config.tcp_keepintvl, gck_rpc_set_int},
@@ -92,6 +94,7 @@ static struct {
 
 static void gck_rpc_set_defaults(void)
 {
+	gck_rpc_config.so_recv_timeout = -1;
 	gck_rpc_config.so_keepalive = false;
 	gck_rpc_config.tcp_keepidle = -1;
 	gck_rpc_config.tcp_keepintvl = -1;
@@ -169,6 +172,11 @@ const char *gck_rpc_conf_get_tls_psk_file(const char *env)
 		return env_value;
 	}
 	return gck_rpc_config.psk_file[0] ? gck_rpc_config.psk_file : NULL;
+}
+
+int gck_rpc_conf_get_so_recv_timeout(void)
+{
+    return gck_rpc_config.so_recv_timeout;
 }
 
 bool gck_rpc_conf_get_so_keepalive(void)
