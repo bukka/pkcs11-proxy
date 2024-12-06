@@ -25,6 +25,7 @@
 
 #include "pkcs11/pkcs11.h"
 
+#include "gck-rpc-conf.h"
 #include "gck-rpc-layer.h"
 #include "gck-rpc-tls-psk.h"
 
@@ -262,17 +263,24 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	path = getenv("PKCS11_DAEMON_SOCKET");
-	if (!path && argc == 3)
-           path = argv[2];
-        if (!path)
-	   path = SOCKET_PATH;
+	if (!gck_rpc_conf_init()) {
+		fprintf(stderr, "parsing configuration file failed\n");
+		exit(1);
+	}
+
+	path = gck_rpc_conf_get_so_path("PKCS11_DAEMON_SOCKET");
+	if (!path && argc == 3) {
+		path = argv[2];
+	}
+	if (!path) {
+		path = SOCKET_PATH;
+	}
 
 	/* Initialize TLS, if appropriate */
 	tls = NULL;
 	tls_psk_keyfile = NULL;
 	if (! strncmp("tls://", path, 6)) {
-		tls_psk_keyfile = getenv("PKCS11_PROXY_TLS_PSK_FILE");
+		tls_psk_keyfile = gck_rpc_conf_get_tls_psk_file("PKCS11_PROXY_TLS_PSK_FILE");
 		if (! tls_psk_keyfile || ! tls_psk_keyfile[0]) {
 			fprintf(stderr, "key file must be specified for tls:// socket.\n");
 			exit(1);
