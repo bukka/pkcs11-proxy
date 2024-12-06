@@ -129,41 +129,6 @@ _tls_psk_decode_key(const char *identity, const char *hexkey, unsigned char *psk
 }
 
 /*
- * Read from a file descriptor until a newline is spotted.
- *
- * Using open() and _fgets() instead of fopen() and fgets() avoids having to
- * seccomp-allow the mmap() syscall.
- *
- * Reading one byte at a time is perhaps not optimal from a performance
- * standpoint, but the kernel will surely have pre-buffered the data anyways.
- */
-int _fgets(char *buf, unsigned int len, const int fd)
-{
-	int bytes;
-
-	bytes = 0;
-
-	while (len) {
-		if (read(fd, buf, 1) != 1)
-			break;
-		bytes++;
-		if (*buf == '\n') {
-			buf++;
-			len--;
-			break;
-		}
-		buf++;
-		len--;
-	}
-
-	if (! len)
-		/* ran out of space */
-		return -1;
-	*buf = '\0';
-	return bytes;
-}
-
-/*
  * Callbacks invoked by OpenSSL PSK initialization.
  */
 
@@ -197,7 +162,7 @@ _tls_psk_server_cb(SSL *ssl, const char *identity,
 	*/
 	psk_len = 0;
 
-	while (_fgets(line, sizeof(line) - 1, fd) > 0) {
+	while (gck_rpc_fgets(line, sizeof(line) - 1, fd) > 0) {
 		/* Find first colon and replace it with NULL */
 		hexkey = strchr(line, ':');
 		if (! hexkey)
