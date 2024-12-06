@@ -29,6 +29,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 
 static void do_log(const char *pref, const char *msg, va_list va)
 {
@@ -297,4 +298,39 @@ int gck_rpc_parse_host_port(const char *prefix, char **host, char **port)
 	}
 
 	return 1;
+}
+
+/*
+ * Read from a file descriptor until a newline is spotted.
+ *
+ * Using open() and gck_rpc_fgets() instead of fopen() and fgets() avoids having to
+ * seccomp-allow the mmap() syscall.
+ *
+ * Reading one byte at a time is perhaps not optimal from a performance
+ * standpoint, but the kernel will surely have pre-buffered the data anyways.
+ */
+int gck_rpc_fgets(char *buf, unsigned int len, const int fd)
+{
+	int bytes;
+
+	bytes = 0;
+
+	while (len) {
+		if (read(fd, buf, 1) != 1)
+			break;
+		bytes++;
+		if (*buf == '\n') {
+			buf++;
+			len--;
+			break;
+		}
+		buf++;
+		len--;
+	}
+
+	if (! len)
+		/* ran out of space */
+		return -1;
+	*buf = '\0';
+	return bytes;
 }
