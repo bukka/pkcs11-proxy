@@ -35,7 +35,7 @@
 # include <winsock2.h>
 #else
 # include <sys/socket.h>
-# include <sys/un.h>
+# include <sys/time.h>
 # include <arpa/inet.h>
 # include <netinet/in.h>
 # include <netinet/tcp.h>
@@ -316,6 +316,20 @@ int gck_rpc_parse_host_port(const char *prefix, char **host, char **port)
 int gck_rpc_set_common_sock_options(int sock, char *host, char *port)
 {
 	int one = 1;
+
+    int so_recv_timeout = gck_rpc_conf_get_so_recv_timeout();
+    if (so_recv_timeout >= 0) {
+        struct timeval timeout = {
+            .tv_sec = so_recv_timeout,
+            .tv_usec = 0
+        };
+
+        if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) == -1) {
+            gck_rpc_warn("couldn't set receive timeout (%.100s %.100s): %.100s",
+                         host, port, strerror(errno));
+            return 0;
+        }
+    }
 
 	if (gck_rpc_conf_get_so_keepalive()) {
 		if (setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (char *)&one, sizeof(one)) == -1) {
