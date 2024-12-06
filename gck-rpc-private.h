@@ -325,4 +325,8 @@ int gck_rpc_has_ulong_parameter(CK_ATTRIBUTE_TYPE type);
 /* Parses strings (prefix) to host and port components. */
 int gck_rpc_parse_host_port(const char *prefix, char **host, char **port);
 
+/* fgets own implementation for seccomp */
+int gck_rpc_fgets(char *buf, unsigned int len, const int fd);
+
+
 #endif /* GCK_RPC_CALLS_H */

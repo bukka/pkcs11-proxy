@@ -23,12 +23,25 @@
 
 #include "config.h"
 
+#include "gck-rpc-conf.h"
 #include "gck-rpc-layer.h"
 #include "gck-rpc-private.h"
 
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
+#ifdef __MINGW32__
+# include <winsock2.h>
+#else
+# include <sys/socket.h>
+# include <sys/time.h>
+# include <arpa/inet.h>
+# include <netinet/in.h>
+# include <netinet/tcp.h>
+# include <sys/types.h>
+# include <netdb.h>
+#endif
 
 static void do_log(const char *pref, const char *msg, va_list va)
 {
@@ -297,4 +310,109 @@ int gck_rpc_parse_host_port(const char *prefix, char **host, char **port)
 	}
 
 	return 1;
+}
+
+/* Set client/server common socket options */
+int gck_rpc_set_common_sock_options(int sock, char *host, char *port)
+{
+	int one = 1;
+
+    int so_recv_timeout = gck_rpc_conf_get_so_recv_timeout();
+    if (so_recv_timeout >= 0) {
+        struct timeval timeout = {
+            .tv_sec = so_recv_timeout,
+            .tv_usec = 0
+        };
+
+        if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) == -1) {
+            gck_rpc_warn("couldn't set receive timeout (%.100s %.100s): %.100s",
+                         host, port, strerror(errno));
+            return 0;
+        }
+    }
+
+	if (gck_rpc_conf_get_so_keepalive()) {
+		if (setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (char *)&one, sizeof(one)) == -1) {
+			gck_rpc_warn
+				("couldn't set pkcs11 SO_KEEPALIVE socket option (%.100s %.100s): %.100s",
+				host, port, strerror(errno));
+			return 0;
+		}
+
+#ifdef TCP_KEEPIDLE
+        int keepidle = gck_rpc_conf_get_tcp_keepidle();
+        if (keepidle >= 0) {
+            if (setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, &keepidle, sizeof(keepidle)) == -1) {
+                gck_rpc_warn("couldn't set pkcs11 TCP_KEEPIDLE option (%.100s %.100s): %.100s",
+                             host, port, strerror(errno));
+                return 0;
+            }
+        }
+#endif
+
+#ifdef TCP_KEEPINTVL
+        int keepintvl = gck_rpc_conf_get_tcp_keepintvl();
+        if (keepintvl >= 0) {
+            if (setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, &keepintvl, sizeof(keepintvl)) == -1) {
+                gck_rpc_warn("couldn't set pkcs11 TCP_KEEPINTVL option (%.100s %.100s): %.100s",
+                             host, port, strerror(errno));
+                return 0;
+            }
+        }
+#endif
+
+#ifdef TCP_KEEPCNT
+        int keepcnt = gck_rpc_conf_get_tcp_keepcnt();
+        if (keepcnt >= 0) {
+            if (setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, &keepcnt, sizeof(keepcnt)) == -1) {
+                gck_rpc_warn("couldn't set pkcs11 TCP_KEEPCNT option (%.100s %.100s): %.100s",
+                             host, port, strerror(errno));
+                return 0;
+            }
+        }
+#endif
+	}
+
+	if (setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (char *)&one, sizeof (one)) == -1) {
+		gck_rpc_warn("couldn't set pkcs11 socket protocol options (%.100s %.100s): %.100s",
+				host, port, strerror(errno));
+		return 0;
+	}
+
+	return 1;
+}
+
+/*
+ * Read from a file descriptor until a newline is spotted.
+ *
+ * Using open() and gck_rpc_fgets() instead of fopen() and fgets() avoids having to
+ * seccomp-allow the mmap() syscall.
+ *
+ * Reading one byte at a time is perhaps not optimal from a performance
+ * standpoint, but the kernel will surely have pre-buffered the data anyways.
+ */
+int gck_rpc_fgets(char *buf, unsigned int len, const int fd)
+{
+	int bytes;
+
+	bytes = 0;
+
+	while (len) {
+		if (read(fd, buf, 1) != 1)
+			break;
+		bytes++;
+		if (*buf == '\n') {
+			buf++;
+			len--;
+			break;
+		}
+		buf++;
+		len--;
+	}
+
+	if (! len)
+		/* ran out of space */
+		return -1;
+	*buf = '\0';
+	return bytes;
 }
