@@ -328,5 +328,7 @@ int gck_rpc_parse_host_port(const char *prefix, char **host, char **port);
 /* fgets own implementation for seccomp */
 int gck_rpc_fgets(char *buf, unsigned int len, const int fd);
 
+/* Set client/server common socket options */
+int gck_rpc_set_common_sock_options(int sock, const char *host, const char *port);
 
 #endif /* GCK_RPC_CALLS_H */

@@ -329,7 +329,7 @@ static int _connect_to_host_port(char *host, char *port)
 {
 	char hoststr[NI_MAXHOST], portstr[NI_MAXSERV], hostport[NI_MAXHOST + NI_MAXSERV + 1];
 	struct addrinfo *ai, *first, hints;
-	int res, sock, one = 1;
+	int res, sock;
 
 	memset(&hints, 0, sizeof(struct addrinfo));
 	hints.ai_family = AF_UNSPEC;		/* Either IPv4 or IPv6 */

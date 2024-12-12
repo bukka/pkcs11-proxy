@@ -313,7 +313,7 @@ int gck_rpc_parse_host_port(const char *prefix, char **host, char **port)
 }
 
 /* Set client/server common socket options */
-int gck_rpc_set_common_sock_options(int sock, char *host, char *port)
+int gck_rpc_set_common_sock_options(int sock, const char *host, const char *port)
 {
 	int one = 1;
 
