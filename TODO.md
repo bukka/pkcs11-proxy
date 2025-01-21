@@ -10,6 +10,10 @@
 
 ## Proxy
 
+- Configurable logging with option to log to the log file and setting levels
+  - there should be an option for the level - DEBUG, INFO, WARNING, ERROR
+  - it should be possible to set the log file (including /dev/stderr and syslog)
+  - adding time prefix
 - Module/Dispatcher: Support more mechanisms
 - TLS: Support TLS 1.3
 - TLS: Add cert support
