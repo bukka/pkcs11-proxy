@@ -18,6 +18,9 @@ enum gck_rpc_tls_psk_caller {
 typedef struct {
 	int initialized;
 	SSL_CTX *ssl_ctx;
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+	OSSL_LIB_CTX *libctx;
+#endif
 	BIO *bio;
 	SSL *ssl;
 	enum gck_rpc_tls_psk_caller type;
