@@ -363,54 +363,100 @@ gck_rpc_close_tls(GckRpcTlsPskState *state)
 
 /* Send data using SSL.
  *
- * Returns the number of bytes written.
+ * Returns the number of bytes written or -1 on error.
  */
 int
 gck_rpc_tls_write_all(GckRpcTlsPskState *state, void *data, unsigned int len)
 {
-	int bytes, error;
+	int ret, ssl_err;
 	char buf[256];
 
 	assert(state);
 	assert(data);
 	assert(len > 0);
 
-	bytes = SSL_write(state->ssl, data, len);
+	ret = SSL_write(state->ssl, data, len);
 
-	if (bytes <= 0) {
-		while ((error = ERR_get_error())) {
-			ERR_error_string_n(error, buf, sizeof(buf));
+	if (ret > 0)
+		return ret;
+
+	ssl_err = SSL_get_error(state->ssl, ret);
+
+	switch (ssl_err) {
+	case SSL_ERROR_WANT_READ:
+	case SSL_ERROR_WANT_WRITE:
+		// Non-fatal, retry later
+		return 0;
+
+	case SSL_ERROR_ZERO_RETURN:
+		// Connection closed cleanly
+		warning(("SSL_write: connection closed"));
+		return -1;
+
+	case SSL_ERROR_SYSCALL:
+		if (ret == 0) {
+			warning(("SSL_write: syscall EOF"));
+		} else {
+			perror("SSL_write: syscall error");
+		}
+		return -1;
+
+	default:
+		// Print all queued OpenSSL errors
+		while ((ssl_err = ERR_get_error())) {
+			ERR_error_string_n(ssl_err, buf, sizeof(buf));
 			warning(("SSL_write error: %s", buf));
 		}
-		return 0;
+		return -1;
 	}
-
-	return bytes;
 }
 
 /* Read data using SSL.
  *
- * Returns the number of bytes read.
+ * Returns the number of bytes read or -1 on error.
  */
 int
 gck_rpc_tls_read_all(GckRpcTlsPskState *state, void *data, unsigned int len)
 {
-	int bytes, error;
+	int ret, ssl_err;
 	char buf[256];
 
 	assert(state);
 	assert(data);
 	assert(len > 0);
 
-	bytes = SSL_read(state->ssl, data, len);
+	ret = SSL_read(state->ssl, data, len);
 
-	if (bytes <= 0) {
-		while ((error = ERR_get_error())) {
-			ERR_error_string_n(error, buf, sizeof(buf));
+	if (ret > 0)
+		return ret;
+
+	ssl_err = SSL_get_error(state->ssl, ret);
+
+	switch (ssl_err) {
+	case SSL_ERROR_WANT_READ:
+	case SSL_ERROR_WANT_WRITE:
+		// Non-fatal, retry later
+		return 0;
+
+	case SSL_ERROR_ZERO_RETURN:
+		// Connection closed cleanly
+		warning(("SSL_read: connection closed"));
+		return -1;
+
+	case SSL_ERROR_SYSCALL:
+		if (ret == 0) {
+			warning(("SSL_read: syscall EOF"));
+		} else {
+			perror("SSL_read: syscall error");
+		}
+		return -1;
+
+	default:
+		// Print all queued OpenSSL errors
+		while ((ssl_err = ERR_get_error())) {
+			ERR_error_string_n(ssl_err, buf, sizeof(buf));
 			warning(("SSL_read error: %s", buf));
 		}
-		return 0;
+		return -1;
 	}
-
-	return bytes;
 }
