@@ -224,16 +224,28 @@ gck_rpc_init_tls_psk(GckRpcTlsPskState *state, const char *key_filename,
 		return 0;
 	}
 
-	/* Global OpenSSL initialization */
+	assert(caller == GCK_RPC_TLS_PSK_CLIENT || caller == GCK_RPC_TLS_PSK_SERVER);
+
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+	state->libctx = OSSL_LIB_CTX_new();
+	if (state->libctx == NULL) {
+		gck_rpc_warn("failed to create OpenSSL library context");
+		return 0;
+	}
+	state->ssl_ctx = SSL_CTX_new_ex(state->libctx, NULL, TLS_method());
+#else
+	/* Global OpenSSL initialization (legacy) */
 	SSL_load_error_strings();
 	SSL_library_init();
 	OpenSSL_add_ssl_algorithms();
-
-	assert(caller == GCK_RPC_TLS_PSK_CLIENT || caller == GCK_RPC_TLS_PSK_SERVER);
-
 	state->ssl_ctx = SSL_CTX_new(TLS_method());
+#endif
 
 	if (state->ssl_ctx == NULL) {
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+		OSSL_LIB_CTX_free(state->libctx);
+		state->libctx = NULL;
+#endif
 		gck_rpc_warn("can't initialize SSL_CTX");
 		return 0;
 	}
@@ -241,6 +253,11 @@ gck_rpc_init_tls_psk(GckRpcTlsPskState *state, const char *key_filename,
 	/* Set minimal version to TLS 1.2 */
 	if (!SSL_CTX_set_min_proto_version(state->ssl_ctx, TLS1_2_VERSION))	{
 		SSL_CTX_free(state->ssl_ctx);
+		state->ssl_ctx = NULL;
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+		OSSL_LIB_CTX_free(state->libctx);
+		state->libctx = NULL;
+#endif
 		gck_rpc_warn("cannot set minimal protocol version to TLS 1.2");
 		return 0;
 	}
@@ -248,6 +265,11 @@ gck_rpc_init_tls_psk(GckRpcTlsPskState *state, const char *key_filename,
 	/* Set maximal version to TLS 1.2 */
 	if (!SSL_CTX_set_max_proto_version(state->ssl_ctx, TLS1_2_VERSION))	{
 		SSL_CTX_free(state->ssl_ctx);
+		state->ssl_ctx = NULL;
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+		OSSL_LIB_CTX_free(state->libctx);
+		state->libctx = NULL;
+#endif
 		gck_rpc_warn("cannot set maximal protocol version to TLS 1.2");
 		return 0;
 	}
@@ -327,6 +349,10 @@ gck_rpc_close_tls(GckRpcTlsPskState *state)
 	if (state->ssl_ctx) {
 		SSL_CTX_free(state->ssl_ctx);
 		state->ssl_ctx = NULL;
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+		OSSL_LIB_CTX_free(state->libctx);
+		state->libctx = NULL;
+#endif
 	}
 
 	if (state->ssl) {
