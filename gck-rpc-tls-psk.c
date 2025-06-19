@@ -37,7 +37,7 @@
 #include <string.h>
 
 /* TLS pre-shared key */
-static char tls_psk_identity[128] = { 0, };
+static char tls_psk_identity[1024] = { 0, };
 static char tls_psk_key_filename[MAXPATHLEN] = { 0, };
 
 /* -----------------------------------------------------------------------------
