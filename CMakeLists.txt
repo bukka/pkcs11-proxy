@@ -89,8 +89,8 @@ if (WIN32)
 endif()
 
 # Install directives
-install(TARGETS pkcs11-proxy DESTINATION /lib)
-install(TARGETS pkcs11-daemon DESTINATION /bin)
+install(TARGETS pkcs11-proxy DESTINATION lib)
+install(TARGETS pkcs11-daemon DESTINATION bin)
 
 # Generate syscall-names.h using a custom command
 add_custom_command(
