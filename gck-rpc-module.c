@@ -1471,8 +1471,9 @@ static CK_RV rpc_C_Finalize(CK_VOID_PTR reserved)
 	while (call_state_pool) {
 		cs = call_state_pool;
 		call_state_pool = cs->next;
-		call_destroy (cs);
+		call_destroy(cs);
 	}
+	n_call_state_pool = 0;
 
 	/* This should stop all other calls in */
 	pkcs11_initialized = 0;
