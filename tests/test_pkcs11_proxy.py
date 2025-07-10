@@ -52,15 +52,28 @@ def setup_pkcs11_proxy_lib():
 
     pkcs11_lib = get_pkcs11_library_path()
 
+    if os.getenv("PKCS11_TEST_TLS"):
+        proxy_socket = "tls://127.0.0.1:2345"
+        # Create PSK file in the same directory as this script
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        psk_file_name = os.path.join(script_dir, "pkcs11_tls.psk")
+        # Write the PSK content to the file
+        psk_content = "client:0df6c00be91c6a334589f699365b3125acb9e2232203d2e05ee61af848c103a4"
+        with open(psk_file_name, "w") as f:
+            f.write(psk_content)
+        os.environ["PKCS11_PROXY_TLS_PSK_FILE"] = psk_file_name
+    else:
+        proxy_socket = "tcp://127.0.0.1:2345"
+
     if not os.getenv("PKCS11_TEST_NO_DAEMON"):
         daemon_process = subprocess.Popen([
             pkcs11_daemon_path, pkcs11_lib
-        ], env={**os.environ, "PKCS11_DAEMON_SOCKET": "tcp://127.0.0.1:2345"})
+        ], env={**os.environ, "PKCS11_DAEMON_SOCKET": proxy_socket})
     else:
         daemon_process = None
 
     # Set PKCS11_PROXY_SOCKET for the proxy library to connect to the daemon
-    os.environ["PKCS11_PROXY_SOCKET"] = "tcp://127.0.0.1:2345"
+    os.environ["PKCS11_PROXY_SOCKET"] = proxy_socket
     
     time.sleep(0.5)
     yield proxy_lib_path
