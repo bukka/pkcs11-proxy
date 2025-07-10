@@ -16,6 +16,7 @@ venv/
 __pycache__/
 softhsm2.conf
 tokens/
+pkcs11_tls.psk
 
 # editors
 .\#*
