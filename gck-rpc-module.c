@@ -626,15 +626,19 @@ static CK_RV call_send_recv(CallState * cs)
 
 	/* Send the number of bytes, and then the data */
 
+	debug(("sndrcv: sending the buffer length: %zu", req->buffer.len));
 	egg_buffer_encode_uint32(buf, req->buffer.len);
 	ret = call_write(cs, buf, 4);
 	if (ret != CKR_OK)
 		goto cleanup;
+
+	debug(("sndrcv: sending the buffer"));
 	ret = call_write(cs, req->buffer.buf, req->buffer.len);
 	if (ret != CKR_OK)
 		goto cleanup;
 
 	/* Now read out the number of bytes, and then the data */
+	debug(("sndrcv: reading the buffer length"));
 	ret = call_read(cs, buf, 4);
 	if (ret != CKR_OK)
 		goto cleanup;
@@ -646,6 +650,7 @@ static CK_RV call_send_recv(CallState * cs)
 		goto cleanup;
 	}
 
+	debug(("sndrcv: reading the buffer: %zu bytes", len));
 	ret = call_read(cs, resp->buffer.buf, len);
 	if (ret != CKR_OK)
 		goto cleanup;
