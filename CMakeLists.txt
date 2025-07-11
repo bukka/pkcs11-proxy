@@ -7,7 +7,19 @@ endif()
 
 # Set build options
 option(ENABLE_DEBUG "Enable debug symbols (default: ON)" ON)
+option(ENABLE_DEBUG_OUTPUT "Enable debug output (default: OFF)" OFF)
 option(ENABLE_OPTIMIZATION "Enable optimizations (default: ON)" ON)
+
+# Convert boolean to 0/1 for config.h
+if(ENABLE_DEBUG_OUTPUT)
+    set(DEBUG_OUTPUT_VALUE 1)
+else()
+    set(DEBUG_OUTPUT_VALUE 0)
+endif()
+
+# Generate config.h
+configure_file(${CMAKE_SOURCE_DIR}/config.h.in ${CMAKE_BINARY_DIR}/config.h)
+include_directories(${CMAKE_BINARY_DIR})
 
 # Set source files for the proxy and daemon
 set(PKCS11_PROXY_SRCS
@@ -80,10 +92,10 @@ endif()
 # Win32-specific settings (if required)
 if (WIN32)
     include_directories("ext/include")
-    
+
     add_library(dl STATIC IMPORTED)
     set_property(TARGET dl PROPERTY IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/ext/lib/libdl.a)
-    
+
     target_link_libraries(pkcs11-daemon ws2_32)
     target_link_libraries(pkcs11-proxy ws2_32)
 endif()
