@@ -2247,6 +2247,8 @@ static void run_dispatch_loop(CallState *cs)
 		hoststr[0] = portstr[0] = '\0';
 	}
 
+	debug(("Starting dispatching for address %s:%s", hoststr, portstr));
+
 	/* Enable TLS for this socket */
 	if (cs->tls) {
 		if (! gck_rpc_start_tls(cs->tls, cs->sock)) {
@@ -2254,6 +2256,8 @@ static void run_dispatch_loop(CallState *cs)
 			return ;
 		}
 	}
+
+	debug(("Reading appid"));
 
 	/* The client application */
 	if (! cs->read(cs, (unsigned char *)&cs->appid, sizeof (cs->appid))) {
@@ -2275,6 +2279,7 @@ static void run_dispatch_loop(CallState *cs)
 
 		call_reset(cs);
 
+		debug(("Reading the buffer length"));
 		/* Read the number of bytes ... */
 		if (! cs->read(cs, buf, 4))
 			break;
@@ -2294,6 +2299,7 @@ static void run_dispatch_loop(CallState *cs)
 			break;
 		}
 
+		debug(("Reading the buffer or %zu bytes", len));
 		/* ... and read/parse in the actual message */
 		if (!cs->read(cs, cs->req->buffer.buf, len))
 			break;

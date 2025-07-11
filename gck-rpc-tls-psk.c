@@ -408,8 +408,10 @@ gck_rpc_tls_write_all(GckRpcTlsPskState *state, void *data, unsigned int len)
 
 	switch (ssl_err) {
 	case SSL_ERROR_WANT_READ:
+		debug(("SSL_read: want read"));
+		return 0;
 	case SSL_ERROR_WANT_WRITE:
-		// Non-fatal, retry later
+		debug(("SSL_read: want write"));
 		return 0;
 
 	case SSL_ERROR_ZERO_RETURN:
@@ -458,8 +460,10 @@ gck_rpc_tls_read_all(GckRpcTlsPskState *state, void *data, unsigned int len)
 
 	switch (ssl_err) {
 	case SSL_ERROR_WANT_READ:
+		debug(("SSL_read: want read"));
+		return 0;
 	case SSL_ERROR_WANT_WRITE:
-		// Non-fatal, retry later
+		debug(("SSL_read: want write"));
 		return 0;
 
 	case SSL_ERROR_ZERO_RETURN:
