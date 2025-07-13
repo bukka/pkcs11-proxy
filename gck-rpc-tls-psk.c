@@ -214,61 +214,61 @@ _tls_psk_client_cb(SSL *ssl, const char *hint,
  * Returns 0 on failure and 1 on success.
  */
 int
-gck_rpc_init_tls_psk(GckRpcTlsPskState *state, const char *key_filename,
+gck_rpc_init_tls_psk(GckRpcTlsPskCtx *tls_ctx, const char *key_filename,
 		     const char *identity, enum gck_rpc_tls_psk_caller caller)
 {
 	char *tls_psk_ciphers = PKCS11PROXY_TLS_PSK_CIPHERS;
 
-	if (state->initialized == 1) {
-		warning(("TLS state already initialized"));
+	if (tls_ctx->initialized == 1) {
+		warning(("TLS context already initialized"));
 		return 0;
 	}
 
 	assert(caller == GCK_RPC_TLS_PSK_CLIENT || caller == GCK_RPC_TLS_PSK_SERVER);
 
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-	state->libctx = OSSL_LIB_CTX_new();
-	if (state->libctx == NULL) {
+	tls_ctx->libctx = OSSL_LIB_CTX_new();
+	if (tls_ctx->libctx == NULL) {
 		gck_rpc_warn("failed to create OpenSSL library context");
 		return 0;
 	}
-	state->ssl_ctx = SSL_CTX_new_ex(state->libctx, NULL, TLS_method());
+	tls_ctx->ssl_ctx = SSL_CTX_new_ex(tls_ctx->libctx, NULL, TLS_method());
 #else
 	/* Global OpenSSL initialization (legacy) */
 	SSL_load_error_strings();
 	SSL_library_init();
 	OpenSSL_add_ssl_algorithms();
-	state->ssl_ctx = SSL_CTX_new(TLS_method());
+	tls_ctx->ssl_ctx = SSL_CTX_new(TLS_method());
 #endif
 
-	if (state->ssl_ctx == NULL) {
+	if (tls_ctx->ssl_ctx == NULL) {
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-		OSSL_LIB_CTX_free(state->libctx);
-		state->libctx = NULL;
+		OSSL_LIB_CTX_free(tls_ctx->libctx);
+		tls_ctx->libctx = NULL;
 #endif
 		gck_rpc_warn("can't initialize SSL_CTX");
 		return 0;
 	}
 
 	/* Set minimal version to TLS 1.2 */
-	if (!SSL_CTX_set_min_proto_version(state->ssl_ctx, TLS1_2_VERSION))	{
-		SSL_CTX_free(state->ssl_ctx);
-		state->ssl_ctx = NULL;
+	if (!SSL_CTX_set_min_proto_version(tls_ctx->ssl_ctx, TLS1_2_VERSION))	{
+		SSL_CTX_free(tls_ctx->ssl_ctx);
+		tls_ctx->ssl_ctx = NULL;
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-		OSSL_LIB_CTX_free(state->libctx);
-		state->libctx = NULL;
+		OSSL_LIB_CTX_free(tls_ctx->libctx);
+		tls_ctx->libctx = NULL;
 #endif
 		gck_rpc_warn("cannot set minimal protocol version to TLS 1.2");
 		return 0;
 	}
 
 	/* Set maximal version to TLS 1.2 */
-	if (!SSL_CTX_set_max_proto_version(state->ssl_ctx, TLS1_2_VERSION))	{
-		SSL_CTX_free(state->ssl_ctx);
-		state->ssl_ctx = NULL;
+	if (!SSL_CTX_set_max_proto_version(tls_ctx->ssl_ctx, TLS1_2_VERSION)) {
+		SSL_CTX_free(tls_ctx->ssl_ctx);
+		tls_ctx->ssl_ctx = NULL;
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-		OSSL_LIB_CTX_free(state->libctx);
-		state->libctx = NULL;
+		OSSL_LIB_CTX_free(tls_ctx->libctx);
+		tls_ctx->libctx = NULL;
 #endif
 		gck_rpc_warn("cannot set maximal protocol version to TLS 1.2");
 		return 0;
@@ -276,15 +276,15 @@ gck_rpc_init_tls_psk(GckRpcTlsPskState *state, const char *key_filename,
 
 	/* Set up callback for TLS-PSK initialization */
 	if (caller == GCK_RPC_TLS_PSK_CLIENT)
-		SSL_CTX_set_psk_client_callback(state->ssl_ctx, _tls_psk_client_cb);
+		SSL_CTX_set_psk_client_callback(tls_ctx->ssl_ctx, _tls_psk_client_cb);
 	else
-		SSL_CTX_set_psk_server_callback(state->ssl_ctx, _tls_psk_server_cb);
+		SSL_CTX_set_psk_server_callback(tls_ctx->ssl_ctx, _tls_psk_server_cb);
 
 	/* Disable compression, for security (CRIME Attack). */
-	SSL_CTX_set_options(state->ssl_ctx, SSL_OP_NO_COMPRESSION);
+	SSL_CTX_set_options(tls_ctx->ssl_ctx, SSL_OP_NO_COMPRESSION);
 
 	/* Specify ciphers to use */
-	SSL_CTX_set_cipher_list(state->ssl_ctx, tls_psk_ciphers);
+	SSL_CTX_set_cipher_list(tls_ctx->ssl_ctx, tls_psk_ciphers);
 
 	snprintf(tls_psk_key_filename, sizeof(tls_psk_key_filename), "%s", key_filename);
 
@@ -313,8 +313,8 @@ gck_rpc_init_tls_psk(GckRpcTlsPskState *state, const char *key_filename,
 		close(fd);
 	}
 
-	state->type = caller;
-	state->initialized = 1;
+	tls_ctx->type = caller;
+	tls_ctx->initialized = 1;
 
 	debug(("Initialized TLS-PSK %s", caller == GCK_RPC_TLS_PSK_CLIENT ? "client" : "server"));
 
@@ -334,7 +334,7 @@ gck_rpc_start_tls(GckRpcTlsPskState *state, int sock)
 	int res;
 	char buf[256];
 
-	state->ssl = SSL_new(state->ssl_ctx);
+	state->ssl = SSL_new(state->ctx->ssl_ctx);
 	if (! state->ssl) {
 		warning(("can't initialize SSL"));
 		return 0;
@@ -349,7 +349,7 @@ gck_rpc_start_tls(GckRpcTlsPskState *state, int sock)
 	SSL_set_bio(state->ssl, state->bio, state->bio);
 
 	/* Set up callback for TLS-PSK initialization */
-	if (state->type == GCK_RPC_TLS_PSK_CLIENT)
+	if (state->ctx->type == GCK_RPC_TLS_PSK_CLIENT)
 		res = SSL_connect(state->ssl);
 	else
 		res = SSL_accept(state->ssl);
@@ -365,24 +365,40 @@ gck_rpc_start_tls(GckRpcTlsPskState *state, int sock)
 	return 1;
 }
 
-/* Un-initialize everything SSL related. Call this on application shut down.
+/* Un-initialize everything SSL context related structs. Call this on application shut down.
  */
 void
-gck_rpc_close_tls(GckRpcTlsPskState *state)
+gck_rpc_close_tls_ctx(GckRpcTlsPskCtx *tls_ctx)
 {
-	if (state->ssl_ctx) {
-		SSL_CTX_free(state->ssl_ctx);
-		state->ssl_ctx = NULL;
+	if (tls_ctx->ssl_ctx) {
+		SSL_CTX_free(tls_ctx->ssl_ctx);
+		tls_ctx->ssl_ctx = NULL;
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-		OSSL_LIB_CTX_free(state->libctx);
-		state->libctx = NULL;
+		OSSL_LIB_CTX_free(tls_ctx->libctx);
+		tls_ctx->libctx = NULL;
 #endif
 	}
+}
 
-	if (state->ssl) {
-		SSL_free(state->ssl);
-		state->ssl = NULL;
+/* Un-initialize SSL.
+ */
+void
+gck_rpc_close_tls_state(GckRpcTlsPskState *tls_state)
+{
+	if (tls_state->ssl) {
+		SSL_free(tls_state->ssl);
+		tls_state->ssl = NULL;
 	}
+}
+
+/* Un-initialize all SSL.
+ */
+void
+gck_rpc_close_tls_all(GckRpcTlsPskState *tls_state)
+{
+	if (tls_state->ctx)
+		gck_rpc_close_tls_ctx(tls_state->ctx);
+	gck_rpc_close_tls_state(tls_state);
 }
 
 /* Send data using SSL.

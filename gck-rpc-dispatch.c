@@ -2327,6 +2327,13 @@ static void *run_dispatch_thread(void *arg)
 
 	run_dispatch_loop(cs);
 
+	if (cs->tls) {
+		/* The SSL */
+		gck_rpc_close_tls_state(cs->tls);
+		free(cs->tls);
+		cs->tls = NULL;
+	}
+
 	/* The thread closes the socket and marks as done */
 	assert(cs->sock != -1);
 	close(cs->sock);
@@ -2345,13 +2352,14 @@ static int pkcs11_socket = -1;
 /* The unix socket path, that we listen on */
 static char pkcs11_socket_path[MAXPATHLEN] = { 0, };
 
-void gck_rpc_layer_accept(GckRpcTlsPskState *tls)
+void gck_rpc_layer_accept(GckRpcTlsPskCtx *tls_ctx)
 {
 	struct sockaddr_storage addr;
 	DispatchState *ds, **here;
 	int error;
 	socklen_t addrlen;
 	int new_fd;
+	GckRpcTlsPskState *tls = NULL;
 
 	assert(pkcs11_socket != -1);
 
@@ -2381,6 +2389,11 @@ void gck_rpc_layer_accept(GckRpcTlsPskState *tls)
 		gck_rpc_warn("out of memory");
 		close(new_fd);
 		return;
+	}
+
+	if (tls_ctx != NULL) {
+		tls = calloc(1, sizeof(GckRpcTlsPskState));
+		tls->ctx = tls_ctx;
 	}
 
 	ds->cs.sock = new_fd;
