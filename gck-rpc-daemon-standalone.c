@@ -216,7 +216,7 @@ int main(int argc, char *argv[])
 	int sock, ret, mode;
 	CK_RV rv;
 	CK_C_INITIALIZE_ARGS init_args;
-	GckRpcTlsPskState *tls;
+	GckRpcTlsPskCtx *tls_ctx;
 
 	/* The module to load is the argument */
 	if (argc != 2 && argc != 3)
@@ -277,7 +277,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Initialize TLS, if appropriate */
-	tls = NULL;
+	tls_ctx = NULL;
 	tls_psk_keyfile = NULL;
 	if (! strncmp("tls://", path, 6)) {
 		tls_psk_keyfile = gck_rpc_conf_get_tls_psk_file("PKCS11_PROXY_TLS_PSK_FILE");
@@ -286,13 +286,13 @@ int main(int argc, char *argv[])
 			exit(1);
 		}
 
-		tls = calloc(1, sizeof(GckRpcTlsPskState));
-		if (tls == NULL) {
-			fprintf(stderr, "can't allocate memory for TLS-PSK");
+		tls_ctx = calloc(1, sizeof(GckRpcTlsPskCtx));
+		if (tls_ctx == NULL) {
+			fprintf(stderr, "can't allocate memory for TLS-PSK context");
 			exit(1);
 		}
 
-		if (! gck_rpc_init_tls_psk(tls, tls_psk_keyfile, NULL, GCK_RPC_TLS_PSK_SERVER)) {
+		if (!gck_rpc_init_tls_psk(tls_ctx, tls_psk_keyfile, NULL, GCK_RPC_TLS_PSK_SERVER)) {
 			fprintf(stderr, "TLS-PSK initialization failed");
 			exit(1);
 		}
@@ -340,7 +340,7 @@ int main(int argc, char *argv[])
 			}
 
 			if (FD_ISSET(sock, &read_fds))
-				gck_rpc_layer_accept(tls);
+				gck_rpc_layer_accept(tls_ctx);
 		}
 
 		gck_rpc_layer_uninitialize();
@@ -356,10 +356,10 @@ int main(int argc, char *argv[])
 
 	dlclose(module);
 
-	if (tls) {
-		gck_rpc_close_tls(tls);
-		free(tls);
-		tls = NULL;
+	if (tls_ctx) {
+		gck_rpc_close_tls_ctx(tls_ctx);
+		free(tls_ctx);
+		tls_ctx = NULL;
 	}
 
 	return 0;
