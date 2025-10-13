@@ -98,6 +98,9 @@ int             egg_buffer_reserve              (EggBuffer *buffer,
 int             egg_buffer_resize               (EggBuffer *buffer,
                                                  size_t len);
 
+int             egg_buffer_shrink               (EggBuffer *buffer,
+                                                 size_t max_size);
+
 int		egg_buffer_append 		(EggBuffer *buffer,
 						 const unsigned char *val,
 						 size_t len);

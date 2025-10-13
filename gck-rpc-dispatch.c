@@ -70,6 +70,10 @@ static CK_FUNCTION_LIST_PTR pkcs11_module = NULL;
 #define PARSE_ERROR CKR_DEVICE_ERROR
 #define PREP_ERROR  CKR_DEVICE_MEMORY
 
+/* Buffer management configuration */
+#define BUFFER_SHRINK_THRESHOLD (512 * 1024) /* 512KB - shrink buffers larger than this */
+#define BUFFER_SHRINK_INTERVAL  1000         /* Check every N calls */
+
 typedef struct {
 	CK_SESSION_HANDLE id;
 	CK_SLOT_ID slot;
@@ -82,6 +86,7 @@ struct _CallState {
 	GckRpcMessage *resp;
 	void *allocated;
 	uint64_t appid;
+	unsigned int call_count;
 	int call;
 	int sock;
 	int (*read)(CallState *cs, unsigned char *, size_t);
@@ -160,6 +165,7 @@ static int call_init(CallState * cs)
 	}
 
 	cs->allocated = NULL;
+	cs->call_count = 0;
 	return 1;
 }
 
@@ -201,6 +207,14 @@ static void call_reset(CallState * cs)
 		/* Pointer to the next allocation */
 		allocated = *data;
 		free(data);
+	}
+
+	if (++cs->call_count % BUFFER_SHRINK_INTERVAL == 0) {
+		cs->call_count = 0;
+		if (cs->req)
+			egg_buffer_shrink(&cs->req->buffer, BUFFER_SHRINK_THRESHOLD);
+		if (cs->resp)
+			egg_buffer_shrink(&cs->resp->buffer, BUFFER_SHRINK_THRESHOLD);
 	}
 
 	cs->allocated = NULL;

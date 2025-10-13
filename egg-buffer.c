@@ -187,6 +187,40 @@ int egg_buffer_resize(EggBuffer * buffer, size_t len)
 	return 1;
 }
 
+int egg_buffer_shrink(EggBuffer *buffer, size_t max_size)
+{
+	unsigned char *newbuf;
+	size_t newlen;
+
+	if (!buffer->allocator) {
+		return 0;
+	}
+
+	if (buffer->allocated_len <= max_size) {
+		/* Already small enough */
+		return 1;
+	}
+
+	newlen = (buffer->len > max_size) ? buffer->len : max_size;
+
+	/* Enforce minimum buffer size */
+	if (newlen < 64)
+		newlen = 64;
+
+
+	/* Reallocate to smaller size */
+	newbuf = (buffer->allocator)(buffer->buf, newlen);
+	if (!newbuf) {
+		buffer->failures++;
+		return 0;
+	}
+
+	buffer->buf = newbuf;
+	buffer->allocated_len = newlen;
+
+	return 1;
+}
+
 unsigned char *egg_buffer_add_empty(EggBuffer * buffer, size_t len)
 {
 	size_t pos = buffer->len;
