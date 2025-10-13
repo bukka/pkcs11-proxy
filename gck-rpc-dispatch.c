@@ -2352,6 +2352,15 @@ static int pkcs11_socket = -1;
 /* The unix socket path, that we listen on */
 static char pkcs11_socket_path[MAXPATHLEN] = { 0, };
 
+static void gck_rpc_free_ds(DispatchState *ds)
+{
+	if (ds->cs.tls != NULL) {
+		gck_rpc_close_tls_state(ds->cs.tls);
+		free(ds->cs.tls);
+	}
+	free(ds);
+}
+
 void gck_rpc_layer_accept(GckRpcTlsPskCtx *tls_ctx)
 {
 	struct sockaddr_storage addr;
@@ -2370,7 +2379,7 @@ void gck_rpc_layer_accept(GckRpcTlsPskCtx *tls_ctx)
 		if (c && c->sock == -1) {
 			pthread_join(ds->thread, NULL);
 			*here = ds->next;
-			free(ds);
+			gck_rpc_free_ds(ds);
 		} else {
 			here = &ds->next;
 		}
@@ -2408,7 +2417,7 @@ void gck_rpc_layer_accept(GckRpcTlsPskCtx *tls_ctx)
 	if (error) {
 		gck_rpc_warn("couldn't start thread: %s", strerror(errno));
 		close(new_fd);
-		free(ds);
+		gck_rpc_free_ds(ds);
 		return;
 	}
 
@@ -2661,7 +2670,7 @@ void gck_rpc_layer_uninitialize(void)
 		/* This is always closed by dispatch thread */
 		if (c)
 			assert(c->sock == -1);
-		free(ds);
+		gck_rpc_free_ds(ds);
 	}
 	pthread_mutex_unlock(&pkcs11_dispatchers_mutex);
 
