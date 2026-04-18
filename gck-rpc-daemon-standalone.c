@@ -27,6 +27,7 @@
 
 #include "gck-rpc-conf.h"
 #include "gck-rpc-layer.h"
+#include "gck-rpc-private.h"
 #include "gck-rpc-tls-psk.h"
 
 #include <stdio.h>
@@ -268,6 +269,8 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
+	gck_rpc_log_init();
+
 	path = gck_rpc_conf_get_so_path("PKCS11_DAEMON_SOCKET");
 	if (!path && argc == 3) {
 		path = argv[2];
@@ -334,8 +337,7 @@ int main(int argc, char *argv[])
 			if (ret < 0) {
 				if (errno == EINTR)
 					continue;
-				fprintf(stderr, "error watching socket: %s\n",
-					strerror(errno));
+				fprintf(stderr, "error watching socket: %s\n", strerror(errno));
 				exit(1);
 			}
 
@@ -351,8 +353,7 @@ int main(int argc, char *argv[])
 
 	rv = (funcs->C_Finalize) (NULL);
 	if (rv != CKR_OK)
-		fprintf(stderr, "couldn't finalize module: %s: 0x%08x\n",
-			argv[1], (int)rv);
+		gck_rpc_warn("couldn't finalize module: %s: 0x%08x\n", argv[1], (int)rv);
 
 	dlclose(module);
 
@@ -361,6 +362,8 @@ int main(int argc, char *argv[])
 		free(tls_ctx);
 		tls_ctx = NULL;
 	}
+
+	gck_rpc_log_close();
 
 	return 0;
 }

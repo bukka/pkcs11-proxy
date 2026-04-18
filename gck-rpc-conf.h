@@ -28,6 +28,7 @@
 bool gck_rpc_conf_init(void);
 
 // Getters for configuration values
+const char *gck_rpc_conf_get_log_file(void);
 const char *gck_rpc_conf_get_so_path(const char *env);
 const char *gck_rpc_conf_get_tls_psk_file(const char *env);
 int gck_rpc_conf_get_so_recv_timeout(void);

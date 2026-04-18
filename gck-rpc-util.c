@@ -43,6 +43,32 @@
 # include <netdb.h>
 #endif
 
+static FILE *gck_rpc_log_fp = NULL;
+
+void gck_rpc_log_init(void)
+{
+	const char *path = gck_rpc_conf_get_log_file();
+	if (path && path[0]) {
+		gck_rpc_log_fp = fopen(path, "a");
+		if (!gck_rpc_log_fp)
+			fprintf(stderr, "WARNING: couldn't open log file: %s: %s\n",
+				path, strerror(errno));
+	}
+}
+
+void gck_rpc_log_close(void)
+{
+	if (gck_rpc_log_fp) {
+		fclose(gck_rpc_log_fp);
+		gck_rpc_log_fp = NULL;
+	}
+}
+
+FILE *gck_rpc_log_get_file(void)
+{
+	return gck_rpc_log_fp;
+}
+
 static void do_log(const char *pref, const char *msg, va_list va)
 {
 	char buffer[1024];
