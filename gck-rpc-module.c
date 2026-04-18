@@ -91,11 +91,15 @@ static char tls_psk_key_filename[MAXPATHLEN] = { 0, };
 void gck_rpc_log(const char *msg, ...)
 {
 	va_list ap;
+	FILE *fp = gck_rpc_log_get_file();
+	if (!fp)
+		fp = stderr;
 
 	va_start(ap, msg);
-	vfprintf(stderr, msg, ap);
-	fprintf(stderr, "\n");
+	vfprintf(fp, msg, ap);
+	fprintf(fp, "\n");
 	va_end(ap);
+	fflush(fp);
 }
 
 /* -----------------------------------------------------------------------------
@@ -1318,13 +1322,21 @@ static CK_RV rpc_C_Initialize(CK_VOID_PTR init_args)
 	CallState *cs;
 	pid_t pid;
 
-	debug(("C_Initialize: enter"));
-
 #ifdef _DEBUG
 	GCK_RPC_CHECK_CALLS();
 #endif
 
 	pthread_mutex_lock(&init_mutex);
+
+	if (!gck_rpc_conf_init()) {
+		warning(("parsing configuration file failed"));
+		ret = CKR_FUNCTION_NOT_SUPPORTED;
+		goto done;
+	}
+
+	gck_rpc_log_init();
+
+	debug(("C_Initialize: enter"));
 
 	if (init_args != NULL) {
 		int supplied_ok;
@@ -1374,12 +1386,6 @@ static CK_RV rpc_C_Initialize(CK_VOID_PTR init_args)
 			ret = CKR_CRYPTOKI_ALREADY_INITIALIZED;
 			goto done;
 		}
-	}
-
-	if (!gck_rpc_conf_init()) {
-		warning(("parsing configuration file failed"));
-		ret = CKR_FUNCTION_NOT_SUPPORTED;
-		goto done;
 	}
 
 	/* Lookup the socket path, append '.pkcs11' if it is a domain socket. */
@@ -1446,6 +1452,8 @@ done:
 		pkcs11_initialized_pid = 0;
 		pkcs11_socket_path[0] = 0;
 	}
+
+	gck_rpc_log_close();
 
 	pthread_mutex_unlock(&init_mutex);
 

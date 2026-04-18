@@ -28,6 +28,7 @@
 
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stdio.h>
 
 #include "egg-buffer.h"
 
@@ -288,6 +289,12 @@ int gck_rpc_message_read_space_string(GckRpcMessage * msg,
 				      CK_UTF8CHAR * buffer, CK_ULONG length);
 
 int gck_rpc_message_read_version(GckRpcMessage * msg, CK_VERSION * version);
+
+void gck_rpc_log_init(void);
+
+void gck_rpc_log_close(void);
+
+FILE *gck_rpc_log_get_file(void);
 
 void gck_rpc_log(const char *msg, ...);
 

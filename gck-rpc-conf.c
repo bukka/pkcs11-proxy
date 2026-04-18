@@ -39,6 +39,7 @@ typedef struct {
 	int tcp_keepintvl;
 	int tcp_keepcnt;
 	char psk_file[2048];
+	char log_file[2048];
 } gck_rpc_config_t;
 
 static gck_rpc_config_t gck_rpc_config;
@@ -61,18 +62,21 @@ static char *gck_rpc_trim_whitespace(char *str)
 	return str;
 }
 
-static void gck_rpc_set_string(const char *raw_value, void *dest)
+static void gck_rpc_set_string(const char *raw_value, void *dest, size_t size)
 {
-	strncpy((char *)dest, raw_value, 255);
+	strncpy((char *)dest, raw_value, size - 1);
+	((char *)dest)[size - 1] = '\0';
 }
 
-static void gck_rpc_set_int(const char *raw_value, void *dest)
+static void gck_rpc_set_int(const char *raw_value, void *dest, size_t size)
 {
+	(void)size;
 	*(int *)dest = atoi(raw_value);
 }
 
-static void gck_rpc_set_bool(const char *raw_value, void *dest)
+static void gck_rpc_set_bool(const char *raw_value, void *dest, size_t size)
 {
+	(void)size;
 	*(bool *)dest = (strcasecmp(raw_value, "true") == 0 || strcmp(raw_value, "1") == 0);
 }
 
@@ -80,16 +84,18 @@ static void gck_rpc_set_bool(const char *raw_value, void *dest)
 static struct {
 	const char *key;
 	void *value;
-	void (*setter)(const char *raw_value, void *dest);
+	size_t size;
+	void (*setter)(const char *raw_value, void *dest, size_t size);
 } gck_rpc_config_options[] = {
-	{"so_path", gck_rpc_config.so_path, gck_rpc_set_string},
-	{"so_recv_timeout", &gck_rpc_config.so_recv_timeout, gck_rpc_set_int},
-	{"so_keepalive", &gck_rpc_config.so_keepalive, gck_rpc_set_bool},
-	{"tcp_keepidle", &gck_rpc_config.tcp_keepidle, gck_rpc_set_int},
-	{"tcp_keepintvl", &gck_rpc_config.tcp_keepintvl, gck_rpc_set_int},
-	{"tcp_keepcnt", &gck_rpc_config.tcp_keepcnt, gck_rpc_set_int},
-	{"psk_file", gck_rpc_config.psk_file, gck_rpc_set_string},
-	{NULL, NULL, NULL} // Sentinel
+	{"so_path", gck_rpc_config.so_path, sizeof(gck_rpc_config.so_path), gck_rpc_set_string},
+	{"so_recv_timeout", &gck_rpc_config.so_recv_timeout, sizeof(gck_rpc_config.so_recv_timeout), gck_rpc_set_int},
+	{"so_keepalive", &gck_rpc_config.so_keepalive, sizeof(gck_rpc_config.so_keepalive), gck_rpc_set_bool},
+	{"tcp_keepidle", &gck_rpc_config.tcp_keepidle, sizeof(gck_rpc_config.tcp_keepidle), gck_rpc_set_int},
+	{"tcp_keepintvl", &gck_rpc_config.tcp_keepintvl, sizeof(gck_rpc_config.tcp_keepintvl), gck_rpc_set_int},
+	{"tcp_keepcnt", &gck_rpc_config.tcp_keepcnt, sizeof(gck_rpc_config.tcp_keepcnt), gck_rpc_set_int},
+	{"psk_file", gck_rpc_config.psk_file, sizeof(gck_rpc_config.psk_file), gck_rpc_set_string},
+	{"log_file", gck_rpc_config.log_file, sizeof(gck_rpc_config.log_file), gck_rpc_set_string},
+	{NULL, NULL, 0, NULL}
 };
 
 static void gck_rpc_set_defaults(void)
@@ -101,6 +107,7 @@ static void gck_rpc_set_defaults(void)
 	gck_rpc_config.tcp_keepcnt = -1;
 	gck_rpc_config.so_path[0] = '\0';
 	gck_rpc_config.psk_file[0] = '\0';
+	gck_rpc_config.log_file[0] = '\0';
 }
 
 static bool gck_rpc_parse_config_file(const char *filename)
@@ -130,7 +137,8 @@ static bool gck_rpc_parse_config_file(const char *filename)
 		bool matched = false;
 		for (int i = 0; gck_rpc_config_options[i].key != NULL; ++i) {
 			if (strcmp(gck_rpc_config_options[i].key, key) == 0) {
-				gck_rpc_config_options[i].setter(value, gck_rpc_config_options[i].value);
+				gck_rpc_config_options[i].setter(value, gck_rpc_config_options[i].value,
+						gck_rpc_config_options[i].size);
 				matched = true;
 				break;
 			}
@@ -154,6 +162,15 @@ bool gck_rpc_conf_init(void)
 		return true;
 	}
 	return gck_rpc_parse_config_file(config_path);
+}
+
+const char *gck_rpc_conf_get_log_file(void)
+{
+	const char *env_value = getenv("PKCS11_PROXY_LOG_FILE");
+	if (env_value && strlen(env_value) > 0) {
+		return env_value;
+	}
+	return gck_rpc_config.log_file[0] ? gck_rpc_config.log_file : NULL;
 }
 
 const char *gck_rpc_conf_get_so_path(const char *env)
