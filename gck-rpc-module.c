@@ -1453,8 +1453,6 @@ done:
 		pkcs11_socket_path[0] = 0;
 	}
 
-	gck_rpc_log_close();
-
 	pthread_mutex_unlock(&init_mutex);
 
 	debug(("C_Initialize: %d", ret));
@@ -1500,6 +1498,9 @@ static CK_RV rpc_C_Finalize(CK_VOID_PTR reserved)
 	pthread_mutex_unlock(&init_mutex);
 
 	debug(("C_Finalize: %d", CKR_OK));
+
+	gck_rpc_log_close();
+
 	return CKR_OK;
 }
 
