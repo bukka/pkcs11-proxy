@@ -32,7 +32,7 @@
 #define GCK_RPC_LINE_BUFFER_SIZE 1024
 
 typedef struct {
-	char so_path[1024];
+	char so_path[107];
 	int so_recv_timeout;
 	bool so_keepalive;
 	int tcp_keepidle;
