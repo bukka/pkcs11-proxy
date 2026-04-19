@@ -62,6 +62,7 @@
 #include <fcntl.h> /* for seccomp init */
 #endif /* SECCOMP */
 #include <sys/mman.h>
+#include "build/config.h"
 
 /* Where we dispatch the calls to */
 static CK_FUNCTION_LIST_PTR pkcs11_module = NULL;

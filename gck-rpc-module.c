@@ -1189,25 +1189,31 @@ proto_read_sesssion_info(GckRpcMessage * msg, CK_SESSION_INFO_PTR info)
 
 #define IN_BYTE(val) \
 	if (!gck_rpc_message_write_byte (_cs->req, val)) \
-		{ _ret = CKR_HOST_MEMORY; goto _cleanup; }
+		{ _ret = CKR_HOST_MEMORY; goto _cleanup; } \
+	debug(("  " #val ": %u", (unsigned int)val));
 
 #define IN_ULONG(val) \
 	if (!gck_rpc_message_write_ulong (_cs->req, val)) \
-		{ _ret = CKR_HOST_MEMORY; goto _cleanup; }
+		{ _ret = CKR_HOST_MEMORY; goto _cleanup; } \
+	debug(("  " #val ": %lu", (unsigned long)val));
 
-#define IN_SPACE_STRING(val, len)						\
-	if (!gck_rpc_message_write_space_string (_cs->req, val, len))	\
-		{ _ret = CKR_HOST_MEMORY; goto _cleanup; }
+#define IN_SPACE_STRING(val, len) \
+	if (!gck_rpc_message_write_space_string (_cs->req, val, len)) \
+		{ _ret = CKR_HOST_MEMORY; goto _cleanup; } \
+	debug(("  " #val ": %lu bytes", (unsigned long)len));
 
 #define IN_BYTE_BUFFER(arr, len) \
-	if (!gck_rpc_message_write_byte_buffer (_cs->req, arr, len))	\
-		{ _ret = CKR_HOST_MEMORY; goto _cleanup; }
+	if (!gck_rpc_message_write_byte_buffer (_cs->req, arr, len)) \
+		{ _ret = CKR_HOST_MEMORY; goto _cleanup; } \
+	debug(("  " #arr ": %s, max %lu", \
+		arr ? "data" : "size-query", (unsigned long)*len));
 
 #define IN_BYTE_ARRAY(arr, len) \
 	if (len != 0 && arr == NULL) \
 		{ _ret = CKR_ARGUMENTS_BAD; goto _cleanup; } \
 	if (!gck_rpc_message_write_byte_array (_cs->req, arr, len)) \
-		{ _ret = CKR_HOST_MEMORY; goto _cleanup; }
+		{ _ret = CKR_HOST_MEMORY; goto _cleanup; } \
+	debug(("  " #arr ": %lu bytes", (unsigned long)len));
 
 #define IN_ULONG_BUFFER(arr, len) \
 	if (len == NULL) \
@@ -1216,43 +1222,54 @@ proto_read_sesssion_info(GckRpcMessage * msg, CK_SESSION_INFO_PTR info)
 
 #define IN_ULONG_BUFFER2(arr, len) \
 	if (!gck_rpc_message_write_ulong_buffer (_cs->req, arr ? *len : 0)) \
-		{ _ret = CKR_HOST_MEMORY; goto _cleanup; }
+		{ _ret = CKR_HOST_MEMORY; goto _cleanup; } \
+	debug(("  " #arr ": %s, max %lu", \
+		arr ? "data" : "size-query", \
+		arr ? (unsigned long)*len : 0));
 
 #define IN_ULONG_ARRAY(arr, len) \
 	if (len != 0 && arr == NULL) \
-		{ _ret = CKR_ARGUMENTS_BAD; goto _cleanup; }\
+		{ _ret = CKR_ARGUMENTS_BAD; goto _cleanup; } \
 	if (!gck_rpc_message_write_ulong_array (_cs->req, arr, len)) \
-		{ _ret = CKR_HOST_MEMORY; goto _cleanup; }
+		{ _ret = CKR_HOST_MEMORY; goto _cleanup; } \
+	debug(("  " #arr ": %lu ulongs", (unsigned long)len));
 
 #define IN_ATTRIBUTE_BUFFER(arr, num) \
 	if (num != 0 && arr == NULL) \
 		{ _ret = CKR_ARGUMENTS_BAD; goto _cleanup; } \
 	if (!gck_rpc_message_write_attribute_buffer (_cs->req, (arr), (num))) \
-		{ _ret = CKR_HOST_MEMORY; goto _cleanup; }
+		{ _ret = CKR_HOST_MEMORY; goto _cleanup; } \
+	debug(("  " #arr ": %lu attrs", (unsigned long)num));
 
 #define IN_ATTRIBUTE_ARRAY(arr, num) \
 	if (num != 0 && arr == NULL) \
 		{ _ret = CKR_ARGUMENTS_BAD; goto _cleanup; } \
 	if (!gck_rpc_message_write_attribute_array (_cs->req, (arr), (num))) \
-		{ _ret = CKR_HOST_MEMORY; goto _cleanup; }
+		{ _ret = CKR_HOST_MEMORY; goto _cleanup; } \
+	debug(("  " #arr ": %lu attrs", (unsigned long)num));
 
 #define IN_MECHANISM_TYPE(val) \
 	if(!gck_rpc_mechanism_is_supported (val)) \
 		{ _ret = CKR_MECHANISM_INVALID; goto _cleanup; } \
 	if (!gck_rpc_message_write_ulong (_cs->req, val)) \
-		{ _ret = CKR_HOST_MEMORY; goto _cleanup; }
+		{ _ret = CKR_HOST_MEMORY; goto _cleanup; } \
+	debug(("  " #val ": 0x%lx", (unsigned long)val));
 
 #define IN_MECHANISM(val) \
 	if (val == NULL) \
 		{ _ret = CKR_ARGUMENTS_BAD; goto _cleanup; } \
 	_ret = proto_write_mechanism (_cs->req, val); \
-	if (_ret != CKR_OK) goto _cleanup;
+	if (_ret != CKR_OK) goto _cleanup; \
+	debug(("  mechanism: 0x%lx, params %lu bytes", \
+		(unsigned long)val->mechanism, (unsigned long)val->ulParameterLen));
 
 #define OUT_ULONG(val) \
 	if (val == NULL) \
 		_ret = CKR_ARGUMENTS_BAD; \
 	if (_ret == CKR_OK && !gck_rpc_message_read_ulong (_cs->resp, val)) \
-		_ret = PARSE_ERROR;
+		_ret = PARSE_ERROR; \
+	if (_ret == CKR_OK) \
+		debug(("  " #val ": %lu", (unsigned long)*val));
 
 #define OUT_BYTE_ARRAY(arr, len)  \
 	if (len == NULL) \
@@ -1260,18 +1277,24 @@ proto_read_sesssion_info(GckRpcMessage * msg, CK_SESSION_INFO_PTR info)
 	OUT_BYTE_ARRAY2(arr, len);
 
 #define OUT_BYTE_ARRAY2(arr, len)  \
-	if (_ret == CKR_OK)		\
-		_ret = proto_read_byte_array (_cs->resp, (arr), (len), *(len));
+	if (_ret == CKR_OK) \
+		_ret = proto_read_byte_array (_cs->resp, (arr), (len), *(len)); \
+	if (_ret == CKR_OK) \
+		debug(("  " #arr ": %lu bytes", (unsigned long)*(len)));
 
 #define OUT_ULONG_ARRAY(a, len) \
 	if (len == NULL) \
 		_ret = CKR_ARGUMENTS_BAD; \
 	if (_ret == CKR_OK) \
-		_ret = proto_read_ulong_array (_cs->resp, (a), (len), *(len));
+		_ret = proto_read_ulong_array (_cs->resp, (a), (len), *(len)); \
+	if (_ret == CKR_OK) \
+		debug(("  " #a ": %lu ulongs", (unsigned long)*(len)));
 
 #define OUT_ATTRIBUTE_ARRAY(arr, num) \
 	if (_ret == CKR_OK) \
-		_ret = proto_read_attribute_array (_cs->resp, (arr), (num));
+		_ret = proto_read_attribute_array (_cs->resp, (arr), (num)); \
+	if (_ret == CKR_OK) \
+		debug(("  " #arr ": %lu attrs", (unsigned long)num));
 
 #define OUT_INFO(info) \
 	if (info == NULL) \
@@ -1295,7 +1318,11 @@ proto_read_sesssion_info(GckRpcMessage * msg, CK_SESSION_INFO_PTR info)
 	if (info == NULL) \
 		_ret = CKR_ARGUMENTS_BAD; \
 	if (_ret == CKR_OK) \
-		_ret = proto_read_sesssion_info (_cs->resp, info);
+		_ret = proto_read_sesssion_info (_cs->resp, info); \
+	if (_ret == CKR_OK) \
+		debug(("  slotID: %lu, state: %lu, flags: 0x%lx", \
+			(unsigned long)info->slotID, (unsigned long)info->state, \
+			(unsigned long)info->flags));
 
 #define OUT_MECHANISM_TYPE_ARRAY(arr, len) \
 	if (len == NULL) \
@@ -1303,13 +1330,20 @@ proto_read_sesssion_info(GckRpcMessage * msg, CK_SESSION_INFO_PTR info)
 	if (_ret == CKR_OK) \
 		_ret = proto_read_ulong_array (_cs->resp, (arr), (len), *(len)); \
 	if (_ret == CKR_OK && arr) \
-		gck_rpc_mechanism_list_purge (arr, len);
+		gck_rpc_mechanism_list_purge (arr, len); \
+	if (_ret == CKR_OK) \
+		debug(("  " #arr ": %lu mechanisms", (unsigned long)*(len)));
 
 #define OUT_MECHANISM_INFO(info) \
 	if (info == NULL) \
 		_ret = CKR_ARGUMENTS_BAD; \
 	if (_ret == CKR_OK) \
-		_ret = proto_read_mechanism_info (_cs->resp, info);
+		_ret = proto_read_mechanism_info (_cs->resp, info); \
+	if (_ret == CKR_OK) \
+		debug(("  minKeySize: %lu, maxKeySize: %lu, flags: 0x%lx", \
+			(unsigned long)info->ulMinKeySize, \
+			(unsigned long)info->ulMaxKeySize, \
+			(unsigned long)info->flags));
 
 /* -------------------------------------------------------------------
  * INITIALIZATION and 'GLOBAL' CALLS
