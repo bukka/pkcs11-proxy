@@ -68,7 +68,7 @@ static pid_t pkcs11_initialized_pid = 0;
 static uint64_t pkcs11_app_id = 0;
 
 /* The socket to connect to */
-static char pkcs11_socket_path[MAXPATHLEN] = { 0, };
+static char pkcs11_socket_path[108] = { 0, };
 /* The TLS-PSK keyfile name */
 static char tls_psk_key_filename[MAXPATHLEN] = { 0, };
 
