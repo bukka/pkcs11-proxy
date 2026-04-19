@@ -296,6 +296,8 @@ void gck_rpc_log_close(void);
 
 FILE *gck_rpc_log_get_file(void);
 
+int gck_rpc_log_to_file(const char *msg);
+
 void gck_rpc_log(const char *msg, ...);
 
 void gck_rpc_warn(const char *msg, ...);

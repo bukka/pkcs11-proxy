@@ -91,15 +91,16 @@ static char tls_psk_key_filename[MAXPATHLEN] = { 0, };
 void gck_rpc_log(const char *msg, ...)
 {
 	va_list ap;
-	FILE *fp = gck_rpc_log_get_file();
-	if (!fp)
-		fp = stderr;
+	char buffer[1024];
 
 	va_start(ap, msg);
-	vfprintf(fp, msg, ap);
-	fprintf(fp, "\n");
+	vsnprintf(buffer, sizeof(buffer), msg, ap);
 	va_end(ap);
-	fflush(fp);
+
+	if (!gck_rpc_log_to_file(buffer)) {
+		fprintf(stderr, "%s\n", buffer);
+		fflush(stderr);
+	}
 }
 
 /* -----------------------------------------------------------------------------

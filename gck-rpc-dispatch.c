@@ -137,22 +137,19 @@ static int _install_dispatch_syscall_filter(int use_tls);
 void gck_rpc_log(const char *msg, ...)
 {
 	va_list ap;
-	FILE *fp = gck_rpc_log_get_file();
+	char buffer[1024];
 
 	va_start(ap, msg);
-	if (fp) {
-		vfprintf(fp, msg, ap);
-		fprintf(fp, "\n");
-		fflush(fp);
-	} else {
+	vsnprintf(buffer, sizeof(buffer), msg, ap);
+	va_end(ap);
+
+	if (!gck_rpc_log_to_file(buffer)) {
 #if DEBUG_OUTPUT
-		vfprintf(stderr, msg, ap);
-		fprintf(stderr, "\n");
+		fprintf(stderr, "%s\n", buffer);
 #else
-		vsyslog(LOG_INFO, msg, ap);
+		syslog(LOG_INFO, "%s", buffer);
 #endif
 	}
-	va_end(ap);
 }
 
 /* -------------------------------------------------------------------------------

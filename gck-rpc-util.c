@@ -31,6 +31,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <time.h>
+#include <errno.h>
 #ifdef __MINGW32__
 # include <winsock2.h>
 #else
@@ -69,6 +71,26 @@ FILE *gck_rpc_log_get_file(void)
 	return gck_rpc_log_fp;
 }
 
+int gck_rpc_log_to_file(const char *msg)
+{
+	FILE *fp = gck_rpc_log_fp;
+	struct timespec ts;
+	struct tm tm_info;
+	char timebuf[64];
+
+	if (!fp)
+		return 0;
+
+	clock_gettime(CLOCK_REALTIME, &ts);
+	localtime_r(&ts.tv_sec, &tm_info);
+	strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S", &tm_info);
+
+	fprintf(fp, "[%s.%03ld] [%d] %s\n",
+		timebuf, ts.tv_nsec / 1000000, (int)getpid(), msg);
+	fflush(fp);
+	return 1;
+}
+
 static void do_log(const char *pref, const char *msg, va_list va)
 {
 	char buffer[1024];
@@ -80,7 +102,7 @@ static void do_log(const char *pref, const char *msg, va_list va)
 	}
 
 	vsnprintf(buffer + len, sizeof(buffer) - len, msg, va);
-	gck_rpc_log(buffer);
+	gck_rpc_log("%s", buffer);
 }
 
 void gck_rpc_warn(const char *msg, ...)
