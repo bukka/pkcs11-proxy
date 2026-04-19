@@ -62,7 +62,6 @@
 #include <fcntl.h> /* for seccomp init */
 #endif /* SECCOMP */
 #include <sys/mman.h>
-#include "build/config.h"
 
 /* Where we dispatch the calls to */
 static CK_FUNCTION_LIST_PTR pkcs11_module = NULL;
@@ -234,8 +233,11 @@ static void call_uninit(CallState * cs)
 	/* Close any open sessions. Without this, the application won't be able
 	 * to reconnect (possibly after a crash).
 	 */
-	if (cs->req)
+	if (cs->req) {
+		gck_rpc_log("Cleaning up client %d-%d: closing open sessions",
+			    (uint32_t)(cs->appid >> 32), (uint32_t)cs->appid);
 		rpc_C_Finalize(cs);
+	}
 
 	call_reset(cs);
 
@@ -930,7 +932,7 @@ static CK_RV rpc_C_Finalize(CallState * cs)
 	CK_ULONG i;
 	CK_RV ret;
 	DispatchState *ds, *next;
-
+	int session_count = 0;
 
 	debug(("C_Finalize: enter"));
 
@@ -948,14 +950,24 @@ static CK_RV rpc_C_Finalize(CallState * cs)
 	/* Close all sessions that have been opened by this thread, regardless of slot */
 	for (i = 0; i < PKCS11PROXY_MAX_SESSION_COUNT; i++) {
 		if (cs->sessions[i].id) {
-			gck_rpc_log("Closing session %li on position %i", cs->sessions[i].id, i);
+			gck_rpc_log("Closing session %lu (slot %lu) for client %d-%d",
+				    (unsigned long)cs->sessions[i].id, (unsigned long)cs->sessions[i].slot,
+				    (uint32_t)(cs->appid >> 32), (uint32_t)cs->appid);
 
 			ret = (pkcs11_module->C_CloseSession) (cs->sessions[i].id);
-			if (ret != CKR_OK)
+			if (ret != CKR_OK) {
+				gck_rpc_warn("Failed closing session %lu for client %d-%d: 0x%lx",
+						(unsigned long)cs->sessions[i].id, (uint32_t)(cs->appid >> 32),
+						(uint32_t)cs->appid, (unsigned long)ret);
 				break;
+			}
 			cs->sessions[i].id = 0;
+			session_count++;
 		}
 	}
+
+	gck_rpc_log("Closed %d sessions for client %d-%d",
+			session_count, (uint32_t)(cs->appid >> 32), (uint32_t)cs->appid);
 
 	/* Make all C_WaitForSlotEvent calls return */
 	pthread_mutex_lock(&pkcs11_dispatchers_mutex);
@@ -970,12 +982,11 @@ static CK_RV rpc_C_Finalize(CallState * cs)
 			continue ;
 		if (c->req &&
 		    (c->req->call_id == GCK_RPC_CALL_C_WaitForSlotEvent)) {
-			gck_rpc_log("Sending interuption signal to %i\n",
-                                    c->sock);
+			gck_rpc_log("Interrupting WaitForSlotEvent on socket %d for client %d-%d",
+					c->sock, (uint32_t)(cs->appid >> 32), (uint32_t)cs->appid);
 			if (c->sock != -1)
 				if (shutdown(c->sock, SHUT_RDWR) == 0)
 					c->sock = -1;
-			//pthread_kill(ds->thread, SIGINT);
 		}
 	}
 	pthread_mutex_unlock(&pkcs11_dispatchers_mutex);
@@ -2261,8 +2272,7 @@ static void run_dispatch_loop(CallState *cs)
 	if ((res = getnameinfo((struct sockaddr *) & cs->addr, cs->addrlen,
 			       hoststr, sizeof(hoststr), portstr, sizeof(portstr),
 			       NI_NUMERICHOST | NI_NUMERICSERV)) != 0) {
-		gck_rpc_warn("couldn't call getnameinfo on client addr: %.100s",
-			     gai_strerror(res));
+		gck_rpc_warn("couldn't call getnameinfo on client addr: %.100s", gai_strerror(res));
 		hoststr[0] = portstr[0] = '\0';
 	}
 
@@ -2276,7 +2286,7 @@ static void run_dispatch_loop(CallState *cs)
 
 	/* The client application */
 	if (! cs->read(cs, (unsigned char *)&cs->appid, sizeof (cs->appid))) {
-		gck_rpc_warn("Can't read appid\n");
+		gck_rpc_warn("Can't read appid from client %s:%s", hoststr, portstr);
 		return ;
 	}
 
@@ -2295,32 +2305,42 @@ static void run_dispatch_loop(CallState *cs)
 		call_reset(cs);
 
 		/* Read the number of bytes ... */
-		if (! cs->read(cs, buf, 4))
+		if (! cs->read(cs, buf, 4)) {
+			gck_rpc_log("Client %d-%d disconnected (client %s, port %s)",
+					(uint32_t)(cs->appid >> 32), (uint32_t)cs->appid, hoststr, portstr);
 			break;
+		}
 
 		/* Calculate the number of bytes */
 		len = egg_buffer_decode_uint32(buf);
 		if (len >= 0x0FFFFFFF) {
-			gck_rpc_warn
-			    ("invalid message size from module: %u bytes", len);
+			gck_rpc_warn("invalid message size from client %d-%d: %u bytes",
+					(uint32_t)(cs->appid >> 32), (uint32_t)cs->appid, len);
 			break;
 		}
 
 		/* Allocate memory */
 		egg_buffer_reserve(&cs->req->buffer, cs->req->buffer.len + len);
 		if (egg_buffer_has_error(&cs->req->buffer)) {
-			gck_rpc_warn("error allocating buffer for message");
+			gck_rpc_warn("error allocating buffer for client %d-%d",
+					(uint32_t)(cs->appid >> 32), (uint32_t)cs->appid);
 			break;
 		}
 
 		/* ... and read/parse in the actual message */
-		if (!cs->read(cs, cs->req->buffer.buf, len))
+		if (!cs->read(cs, cs->req->buffer.buf, len)) {
+			gck_rpc_log("Client %d-%d disconnected during message read",
+					(uint32_t)(cs->appid >> 32), (uint32_t)cs->appid);
 			break;
+		}
 
 		egg_buffer_add_empty(&cs->req->buffer, len);
 
-		if (!gck_rpc_message_parse(cs->req, GCK_RPC_REQUEST))
+		if (!gck_rpc_message_parse(cs->req, GCK_RPC_REQUEST)) {
+			gck_rpc_warn("invalid message from client %d-%d",
+					(uint32_t)(cs->appid >> 32), (uint32_t)cs->appid);
 			break;
+		}
 
 		/* ... send for processing ... */
 		if (!dispatch_call(cs))
@@ -2329,8 +2349,11 @@ static void run_dispatch_loop(CallState *cs)
 		/* .. send back response length, and then response data */
 		egg_buffer_encode_uint32(buf, cs->resp->buffer.len);
 		if (!cs->write(cs, buf, 4) ||
-		    !cs->write(cs, cs->resp->buffer.buf, cs->resp->buffer.len))
+		    !cs->write(cs, cs->resp->buffer.buf, cs->resp->buffer.len)) {
+			gck_rpc_log("Client %d-%d disconnected during response write",
+					(uint32_t)(cs->appid >> 32), (uint32_t)cs->appid);
 			break;
+		}
 	}
 
 	call_uninit(cs);
@@ -2341,22 +2364,27 @@ static void *run_dispatch_thread(void *arg)
 	CallState *cs = arg;
 	assert(cs->sock != -1);
 
+	debug(("Dispatch thread started for socket %d", cs->sock));
+
 	if (_install_dispatch_syscall_filter((cs->tls != NULL)))
 		return NULL;
 
 	run_dispatch_loop(cs);
 
 	if (cs->tls) {
-		/* The SSL */
+		gck_rpc_log("Closing TLS for client %d-%d",
+			    (uint32_t)(cs->appid >> 32), (uint32_t)cs->appid);
 		gck_rpc_close_tls_state(cs->tls);
 		free(cs->tls);
 		cs->tls = NULL;
 	}
 
-	/* The thread closes the socket and marks as done */
 	assert(cs->sock != -1);
 	close(cs->sock);
 	cs->sock = -1;
+
+	gck_rpc_log("Dispatch thread finished for client %d-%d",
+		    (uint32_t)(cs->appid >> 32), (uint32_t)cs->appid);
 
 	return NULL;
 }
