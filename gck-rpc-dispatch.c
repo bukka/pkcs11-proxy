@@ -2196,6 +2196,78 @@ static int dispatch_call(CallState * cs)
 	return 1;
 }
 
+static int wait_for_socket(int sock, int want)
+{
+	fd_set read_fds;
+	fd_set write_fds;
+	fd_set *rfds = NULL;
+	fd_set *wfds = NULL;
+	int r;
+
+	FD_ZERO(&read_fds);
+	FD_ZERO(&write_fds);
+
+	if (want == GCK_RPC_IO_WANT_READ) {
+		FD_SET(sock, &read_fds);
+		rfds = &read_fds;
+	} else if (want == GCK_RPC_IO_WANT_WRITE) {
+		FD_SET(sock, &write_fds);
+		wfds = &write_fds;
+	} else {
+		return GCK_RPC_IO_ERROR;
+	}
+
+	do {
+		r = select(sock + 1, rfds, wfds, NULL, NULL);
+	} while (r < 0 && errno == EINTR);
+
+	if (r <= 0) {
+		if (r < 0)
+			gck_rpc_warn("couldn't select on socket: %s", strerror(errno));
+		return GCK_RPC_IO_ERROR;
+	}
+
+	return 1;
+}
+
+static int socket_read(int sock, unsigned char *data, size_t len)
+{
+	int r;
+
+	r = recv(sock, data, len, 0);
+	if (r > 0)
+		return r;
+	if (r == 0)
+		return GCK_RPC_IO_CLOSED;
+
+	if (errno == EAGAIN || errno == EINTR)
+		return GCK_RPC_IO_WANT_READ;
+
+	gck_rpc_warn("couldn't receive data: %s", strerror(errno));
+	return GCK_RPC_IO_ERROR;
+}
+
+static int socket_write(int sock, unsigned char *data, size_t len)
+{
+	int r;
+
+	r = send(sock, data, len, MSG_NOSIGNAL);
+	if (r > 0)
+		return r;
+
+	if (r == 0)
+		return GCK_RPC_IO_ERROR;
+
+	if (errno == EAGAIN || errno == EINTR)
+		return GCK_RPC_IO_WANT_WRITE;
+
+	if (errno != EPIPE)
+		gck_rpc_warn("couldn't send data: %s", strerror(errno));
+
+	return GCK_RPC_IO_ERROR;
+}
+
+
 static int read_all(CallState *cs, unsigned char *data, size_t len)
 {
 	int r;
@@ -2205,26 +2277,24 @@ static int read_all(CallState *cs, unsigned char *data, size_t len)
 	assert(len > 0);
 
 	while (len > 0) {
-
 		if (cs->tls)
 			r = gck_rpc_tls_read_all(cs->tls, data, len);
 		else
-			r = recv(cs->sock, data, len, 0);
+			r = socket_read(cs->sock, data, len);
 
-		if (r == 0) {
-			/* Connection was closed on client */
-			return 0;
-		} else if (r == -1) {
-			if (errno != EAGAIN && errno != EINTR) {
-				gck_rpc_warn("couldn't receive data: %s",
-					     strerror(errno));
+		if (r == GCK_RPC_IO_WANT_READ || r == GCK_RPC_IO_WANT_WRITE) {
+			if (wait_for_socket(cs->sock, r) <= 0)
 				return 0;
-			}
-		} else {
-			data += r;
-			len -= r;
+			continue;
 		}
+
+		if (r == GCK_RPC_IO_CLOSED || r == GCK_RPC_IO_ERROR)
+			return 0;
+
+		data += r;
+		len -= r;
 	}
+
 	return 1;
 }
 
@@ -2237,25 +2307,22 @@ static int write_all(CallState *cs, unsigned char *data, size_t len)
 	assert(len > 0);
 
 	while (len > 0) {
-
 		if (cs->tls)
-			r = gck_rpc_tls_write_all(cs->tls, (void *) data, len);
+			r = gck_rpc_tls_write_all(cs->tls, data, len);
 		else
-            r = send(cs->sock, data, len, MSG_NOSIGNAL);
+			r = socket_write(cs->sock, data, len);
 
-		if (r == -1) {
-			if (errno == EPIPE) {
-				/* Connection closed from client */
+		if (r == GCK_RPC_IO_WANT_READ || r == GCK_RPC_IO_WANT_WRITE) {
+			if (wait_for_socket(cs->sock, r) <= 0)
 				return 0;
-			} else if (errno != EAGAIN && errno != EINTR) {
-				gck_rpc_warn("couldn't send data: %s",
-					     strerror(errno));
-				return 0;
-			}
-		} else {
-			data += r;
-			len -= r;
+			continue;
 		}
+
+		if (r == GCK_RPC_IO_CLOSED || r == GCK_RPC_IO_ERROR)
+			return 0;
+
+		data += r;
+		len -= r;
 	}
 
 	return 1;

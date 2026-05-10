@@ -424,30 +424,30 @@ gck_rpc_tls_write_all(GckRpcTlsPskState *state, void *data, unsigned int len)
 
 	switch (ssl_err) {
 	case SSL_ERROR_WANT_READ:
+		return GCK_RPC_IO_WANT_READ;
+
 	case SSL_ERROR_WANT_WRITE:
-		// Non-fatal, retry later
-		return 0;
+		return GCK_RPC_IO_WANT_WRITE;
 
 	case SSL_ERROR_ZERO_RETURN:
-		// Connection closed cleanly
 		warning(("SSL_write: connection closed"));
-		return -1;
+		return GCK_RPC_IO_CLOSED;
 
 	case SSL_ERROR_SYSCALL:
 		if (ret == 0) {
 			warning(("SSL_write: syscall EOF"));
+			return GCK_RPC_IO_CLOSED;
 		} else {
 			perror("SSL_write: syscall error");
+			return GCK_RPC_IO_ERROR;
 		}
-		return -1;
 
 	default:
-		// Print all queued OpenSSL errors
 		while ((ssl_err = ERR_get_error())) {
 			ERR_error_string_n(ssl_err, buf, sizeof(buf));
 			warning(("SSL_write error: %s", buf));
 		}
-		return -1;
+		return GCK_RPC_IO_ERROR;
 	}
 }
 
@@ -474,29 +474,29 @@ gck_rpc_tls_read_all(GckRpcTlsPskState *state, void *data, unsigned int len)
 
 	switch (ssl_err) {
 	case SSL_ERROR_WANT_READ:
+		return GCK_RPC_IO_WANT_READ;
+
 	case SSL_ERROR_WANT_WRITE:
-		// Non-fatal, retry later
-		return 0;
+		return GCK_RPC_IO_WANT_WRITE;
 
 	case SSL_ERROR_ZERO_RETURN:
-		// Connection closed cleanly
 		warning(("SSL_read: connection closed"));
-		return -1;
+		return GCK_RPC_IO_CLOSED;
 
 	case SSL_ERROR_SYSCALL:
 		if (ret == 0) {
 			warning(("SSL_read: syscall EOF"));
+			return GCK_RPC_IO_CLOSED;
 		} else {
 			perror("SSL_read: syscall error");
+			return GCK_RPC_IO_ERROR;
 		}
-		return -1;
 
 	default:
-		// Print all queued OpenSSL errors
 		while ((ssl_err = ERR_get_error())) {
 			ERR_error_string_n(ssl_err, buf, sizeof(buf));
 			warning(("SSL_read error: %s", buf));
 		}
-		return -1;
+		return GCK_RPC_IO_ERROR;
 	}
 }

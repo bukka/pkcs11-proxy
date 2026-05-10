@@ -237,6 +237,11 @@ typedef struct _GckRpcMessage {
 #define GCK_RPC_BYTE_BUFFER_NULL_DATA	1
 #define GCK_RPC_BYTE_BUFFER_NULL_COUNT	2
 
+#define GCK_RPC_IO_CLOSED      0
+#define GCK_RPC_IO_ERROR      -1
+#define GCK_RPC_IO_WANT_READ  -2
+#define GCK_RPC_IO_WANT_WRITE -3
+
 GckRpcMessage *gck_rpc_message_new(EggBufferAllocator allocator);
 
 void gck_rpc_message_free(GckRpcMessage * msg);
