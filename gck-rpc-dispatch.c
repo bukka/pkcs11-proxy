@@ -2507,6 +2507,9 @@ void gck_rpc_layer_accept(GckRpcTlsPskCtx *tls_ctx)
 		return;
 	}
 
+	if (!gck_rpc_set_common_sock_options(new_fd, NULL, NULL))
+		gck_rpc_warn("couldn't set all socket options on accepted connection; continuing");
+
 	ds = calloc(1, sizeof(DispatchState));
 	if (ds == NULL) {
 		gck_rpc_warn("out of memory");

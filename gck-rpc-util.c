@@ -364,66 +364,68 @@ int gck_rpc_parse_host_port(const char *prefix, char **host, char **port)
 int gck_rpc_set_common_sock_options(int sock, const char *host, const char *port)
 {
 	int one = 1;
+	const char *h = host ? host : "?";
+	const char *p = port ? port : "?";
 
-    int so_recv_timeout = gck_rpc_conf_get_so_recv_timeout();
-    if (so_recv_timeout >= 0) {
-        struct timeval timeout = {
-            .tv_sec = so_recv_timeout,
-            .tv_usec = 0
-        };
+	int so_recv_timeout = gck_rpc_conf_get_so_recv_timeout();
+	if (so_recv_timeout >= 0) {
+		struct timeval timeout = {
+			.tv_sec = so_recv_timeout,
+			.tv_usec = 0
+		};
 
-        if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) == -1) {
-            gck_rpc_warn("couldn't set receive timeout (%.100s %.100s): %.100s",
-                         host, port, strerror(errno));
-            return 0;
-        }
-    }
+		if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) == -1) {
+			gck_rpc_warn("couldn't set receive timeout (%.100s %.100s): %.100s",
+					h, p, strerror(errno));
+			return 0;
+		}
+	}
 
 	if (gck_rpc_conf_get_so_keepalive()) {
 		if (setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (char *)&one, sizeof(one)) == -1) {
-			gck_rpc_warn
-				("couldn't set pkcs11 SO_KEEPALIVE socket option (%.100s %.100s): %.100s",
-				host, port, strerror(errno));
+			gck_rpc_warn(
+					"couldn't set pkcs11 SO_KEEPALIVE socket option (%.100s %.100s): %.100s",
+					h, p, strerror(errno));
 			return 0;
 		}
 
 #ifdef TCP_KEEPIDLE
-        int keepidle = gck_rpc_conf_get_tcp_keepidle();
-        if (keepidle >= 0) {
-            if (setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, &keepidle, sizeof(keepidle)) == -1) {
-                gck_rpc_warn("couldn't set pkcs11 TCP_KEEPIDLE option (%.100s %.100s): %.100s",
-                             host, port, strerror(errno));
-                return 0;
-            }
-        }
+		int keepidle = gck_rpc_conf_get_tcp_keepidle();
+		if (keepidle >= 0) {
+			if (setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, &keepidle, sizeof(keepidle)) == -1) {
+				gck_rpc_warn("couldn't set pkcs11 TCP_KEEPIDLE option (%.100s %.100s): %.100s",
+						h, p, strerror(errno));
+				return 0;
+			}
+		}
 #endif
 
 #ifdef TCP_KEEPINTVL
-        int keepintvl = gck_rpc_conf_get_tcp_keepintvl();
-        if (keepintvl >= 0) {
-            if (setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, &keepintvl, sizeof(keepintvl)) == -1) {
-                gck_rpc_warn("couldn't set pkcs11 TCP_KEEPINTVL option (%.100s %.100s): %.100s",
-                             host, port, strerror(errno));
-                return 0;
-            }
-        }
+		int keepintvl = gck_rpc_conf_get_tcp_keepintvl();
+		if (keepintvl >= 0) {
+			if (setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, &keepintvl, sizeof(keepintvl)) == -1) {
+				gck_rpc_warn("couldn't set pkcs11 TCP_KEEPINTVL option (%.100s %.100s): %.100s",
+						h, p, strerror(errno));
+				return 0;
+			}
+		}
 #endif
 
 #ifdef TCP_KEEPCNT
-        int keepcnt = gck_rpc_conf_get_tcp_keepcnt();
-        if (keepcnt >= 0) {
-            if (setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, &keepcnt, sizeof(keepcnt)) == -1) {
-                gck_rpc_warn("couldn't set pkcs11 TCP_KEEPCNT option (%.100s %.100s): %.100s",
-                             host, port, strerror(errno));
-                return 0;
-            }
-        }
+		int keepcnt = gck_rpc_conf_get_tcp_keepcnt();
+		if (keepcnt >= 0) {
+			if (setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, &keepcnt, sizeof(keepcnt)) == -1) {
+				gck_rpc_warn("couldn't set pkcs11 TCP_KEEPCNT option (%.100s %.100s): %.100s",
+						h, p, strerror(errno));
+				return 0;
+			}
+		}
 #endif
 	}
 
 	if (setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (char *)&one, sizeof (one)) == -1) {
 		gck_rpc_warn("couldn't set pkcs11 socket protocol options (%.100s %.100s): %.100s",
-				host, port, strerror(errno));
+				h, p, strerror(errno));
 		return 0;
 	}
 
