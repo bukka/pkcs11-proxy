@@ -2519,6 +2519,12 @@ void gck_rpc_layer_accept(GckRpcTlsPskCtx *tls_ctx)
 
 	if (tls_ctx != NULL) {
 		tls = calloc(1, sizeof(GckRpcTlsPskState));
+		if (tls == NULL) {
+			gck_rpc_warn("out of memory");
+			close(new_fd);
+			free(ds);
+			return;
+		}
 		tls->ctx = tls_ctx;
 	}
 
