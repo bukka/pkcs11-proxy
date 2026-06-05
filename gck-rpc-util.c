@@ -35,6 +35,7 @@
 #include <errno.h>
 #ifdef __MINGW32__
 # include <winsock2.h>
+# include <windows.h>
 #else
 # include <sys/socket.h>
 # include <sys/time.h>
@@ -43,9 +44,33 @@
 # include <netinet/tcp.h>
 # include <sys/types.h>
 # include <netdb.h>
+# ifdef __linux__
+#  include <sys/syscall.h>
+# else
+#  include <pthread.h>
+#  include <stdint.h>
+# endif
 #endif
 
 static FILE *gck_rpc_log_fp = NULL;
+
+/*
+ * Return a per-thread identifier for logging. On Linux this is the kernel
+ * thread id (matches /proc/<pid>/task), which is what we want for correlating
+ * dispatch threads with connections. On other platforms we fall back to an
+ * opaque but stable/unique thread identifier, which is sufficient to tell
+ * threads apart in the log.
+ */
+static long gck_rpc_gettid(void)
+{
+#ifdef __MINGW32__
+	return (long)GetCurrentThreadId();
+#elif defined(__linux__)
+	return (long)syscall(SYS_gettid);
+#else
+	return (long)(uintptr_t)pthread_self();
+#endif
+}
 
 void gck_rpc_log_init(void)
 {
@@ -85,8 +110,8 @@ int gck_rpc_log_to_file(const char *msg)
 	localtime_r(&ts.tv_sec, &tm_info);
 	strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S", &tm_info);
 
-	fprintf(fp, "[%s.%03ld] [%d] %s\n",
-		timebuf, ts.tv_nsec / 1000000, (int)getpid(), msg);
+	fprintf(fp, "[%s.%03ld] [%d/%ld] %s\n",
+		timebuf, ts.tv_nsec / 1000000, (int)getpid(), gck_rpc_gettid(), msg);
 	fflush(fp);
 	return 1;
 }

@@ -86,10 +86,10 @@ static int install_syscall_filter(const int sock, const char *tls_psk_keyfile, c
 	seccomp_rule_add(ctx,SCMP_ACT_ALLOW, SCMP_SYS(exit_group), 0);
 
 	/*
-	 * Logging (gck_rpc_log_to_file uses clock_gettime). Usually served by
-	 * the vDSO without a real syscall, but not guaranteed on all arches.
+	 * Logging (gck_rpc_log_to_file uses clock_gettime and gettid).
 	 */
-	seccomp_rule_add(ctx,SCMP_ACT_ALLOW, SCMP_SYS(clock_gettime), 0);
+	seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(clock_gettime), 0);
+	seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(gettid), 0);
 
 	/*
 	 * Network related syscalls.
