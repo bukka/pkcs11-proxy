@@ -2504,7 +2504,7 @@ void gck_rpc_layer_accept(GckRpcTlsPskCtx *tls_ctx)
 	if (new_fd < 0) {
 		gck_rpc_warn("cannot accept pkcs11 connection: %s",
 			     strerror(errno));
-		return;
+		goto out;
 	}
 
 	if (!gck_rpc_set_common_sock_options(new_fd, NULL, NULL))
@@ -2514,7 +2514,7 @@ void gck_rpc_layer_accept(GckRpcTlsPskCtx *tls_ctx)
 	if (ds == NULL) {
 		gck_rpc_warn("out of memory");
 		close(new_fd);
-		return;
+		goto out;
 	}
 
 	if (tls_ctx != NULL) {
@@ -2523,7 +2523,7 @@ void gck_rpc_layer_accept(GckRpcTlsPskCtx *tls_ctx)
 			gck_rpc_warn("out of memory");
 			close(new_fd);
 			free(ds);
-			return;
+			goto out;
 		}
 		tls->ctx = tls_ctx;
 	}
@@ -2541,11 +2541,13 @@ void gck_rpc_layer_accept(GckRpcTlsPskCtx *tls_ctx)
 		gck_rpc_warn("couldn't start thread: %s", strerror(errno));
 		close(new_fd);
 		gck_rpc_free_ds(ds);
-		return;
+		goto out;
 	}
 
 	ds->next = pkcs11_dispatchers;
 	pkcs11_dispatchers = ds;
+
+out:
 	pthread_mutex_unlock(&pkcs11_dispatchers_mutex);
 }
 
