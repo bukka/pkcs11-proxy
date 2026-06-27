@@ -34,19 +34,19 @@
 #include <assert.h>
 #endif
 
-GckRpcMessage *gck_rpc_message_new(EggBufferAllocator allocator)
+GckRpcMessage *gck_rpc_message_new(const EggBufferAllocator *allocator)
 {
 	GckRpcMessage *msg;
 
 	assert(allocator);
 
-	msg = (GckRpcMessage *) (allocator) (NULL, sizeof(GckRpcMessage));
+	msg = (GckRpcMessage *) (allocator->alloc) (sizeof(GckRpcMessage));
 	if (!msg)
 		return NULL;
 	memset(msg, 0, sizeof(*msg));
 
 	if (!egg_buffer_init_full(&msg->buffer, 64, allocator)) {
-		(allocator) (msg, 0);	/* Frees allocation */
+		(allocator->free) (msg);	/* Frees allocation */
 		return NULL;
 	}
 
@@ -57,7 +57,7 @@ GckRpcMessage *gck_rpc_message_new(EggBufferAllocator allocator)
 
 void gck_rpc_message_free(GckRpcMessage * msg)
 {
-	EggBufferAllocator allocator;
+	const EggBufferAllocator *allocator;
 
 	if (msg) {
 		assert(msg->buffer.allocator);
@@ -65,7 +65,7 @@ void gck_rpc_message_free(GckRpcMessage * msg)
 		egg_buffer_uninit(&msg->buffer);
 
 		/* frees data buffer */
-		(allocator) (msg, 0);
+		(allocator->free) (msg);
 	}
 }
 

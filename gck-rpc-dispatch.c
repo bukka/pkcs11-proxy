@@ -160,8 +160,8 @@ static int call_init(CallState * cs)
 {
 	assert(cs);
 
-	cs->req = gck_rpc_message_new((EggBufferAllocator) realloc);
-	cs->resp = gck_rpc_message_new((EggBufferAllocator) realloc);
+	cs->req = gck_rpc_message_new(&egg_buffer_default_allocator);
+	cs->resp = gck_rpc_message_new(&egg_buffer_default_allocator);
 	if (!cs->req || !cs->resp) {
 		gck_rpc_message_free(cs->req);
 		gck_rpc_message_free(cs->resp);

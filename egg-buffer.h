@@ -54,15 +54,23 @@
  * and invalidating any direct pointers into the buffer.
  */
 
-/* The allocator for the EggBuffer. This follows the realloc() syntax and logic */
-typedef void* (*EggBufferAllocator) (void* p, size_t len);
+/* The allocator for the EggBuffer. A set of functions so that freeing is an
+   explicit free() rather than a realloc(p, 0). */
+typedef struct _EggBufferAllocator {
+	void* (*alloc)   (size_t len);
+	void* (*realloc) (void* p, size_t len);
+	void  (*free)    (void* p);
+} EggBufferAllocator;
+
+/* The standard C library allocator: { malloc, realloc, free } */
+extern const EggBufferAllocator egg_buffer_default_allocator;
 
 typedef struct _EggBuffer {
 	unsigned char *buf;
 	size_t len;
 	size_t allocated_len;
 	int failures;
-	EggBufferAllocator allocator;
+	const EggBufferAllocator *allocator;
 } EggBuffer;
 
 #define 	EGG_BUFFER_EMPTY		{ NULL, 0, 0, 0, NULL }
@@ -71,7 +79,7 @@ int             egg_buffer_init                 (EggBuffer *buffer, size_t reser
 
 int             egg_buffer_init_full            (EggBuffer *buffer,
                                                  size_t reserve,
-                                                 EggBufferAllocator allocator);
+                                                 const EggBufferAllocator *allocator);
 
 void            egg_buffer_init_static          (EggBuffer *buffer,
                                                  unsigned char *buf,
@@ -80,12 +88,12 @@ void            egg_buffer_init_static          (EggBuffer *buffer,
 void            egg_buffer_init_allocated       (EggBuffer *buffer,
                                                  unsigned char *buf,
                                                  size_t len,
-                                                 EggBufferAllocator allocator);
+                                                 const EggBufferAllocator *allocator);
 
 void            egg_buffer_uninit               (EggBuffer *buffer);
 
 int             egg_buffer_set_allocator        (EggBuffer *buffer,
-                                                 EggBufferAllocator allocator);
+                                                 const EggBufferAllocator *allocator);
 
 void 		egg_buffer_reset		(EggBuffer *buffer);
 
@@ -170,7 +178,7 @@ int             egg_buffer_get_string           (EggBuffer *buffer,
                                                  size_t offset,
                                                  size_t *next_offset,
                                                  char **str_ret,
-                                                 EggBufferAllocator allocator);
+                                                 const EggBufferAllocator *allocator);
 
 int             egg_buffer_add_stringv          (EggBuffer *buffer,
                                                  const char** strv);
@@ -179,7 +187,7 @@ int             egg_buffer_get_stringv          (EggBuffer *buffer,
                                                  size_t offset,
                                                  size_t *next_offset,
                                                  char ***strv_ret,
-                                                 EggBufferAllocator allocator);
+                                                 const EggBufferAllocator *allocator);
 
 int		egg_buffer_add_uint64		(EggBuffer *buffer,
 						 uint64_t val);

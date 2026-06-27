@@ -227,13 +227,25 @@ static unsigned int n_call_state_pool = 0;
 static pthread_mutex_t call_state_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* Allocator for call session buffers */
-static void *call_allocator(void *p, size_t sz)
+static void *call_alloc(size_t sz)
 {
-	void *res = realloc(p, (size_t) sz);
+	void *res = malloc(sz);
 	if (!res && sz)
 		warning(("memory allocation of %lu bytes failed", sz));
 	return res;
 }
+
+static void *call_realloc(void *p, size_t sz)
+{
+	void *res = realloc(p, sz);
+	if (!res && sz)
+		warning(("memory allocation of %lu bytes failed", sz));
+	return res;
+}
+
+static const EggBufferAllocator call_allocator = {
+	call_alloc, call_realloc, free
+};
 
 static void call_disconnect(CallState * cs)
 {
@@ -573,7 +585,7 @@ static CK_RV call_prepare(CallState * cs, int call_id)
 
 	/* Allocate a new request if we've lost the old one */
 	if (!cs->req) {
-		cs->req = gck_rpc_message_new(call_allocator);
+		cs->req = gck_rpc_message_new(&call_allocator);
 		if (!cs->req) {
 			warning(("cannot allocate request buffer: out of memory"));
 			return CKR_HOST_MEMORY;
@@ -612,7 +624,7 @@ static CK_RV call_send_recv(CallState * cs)
 	/* Setup the response buffer properly */
 	if (!cs->resp) {
 		/* TODO: Do secrets or passwords ever flow through here? */
-		cs->resp = gck_rpc_message_new(call_allocator);
+		cs->resp = gck_rpc_message_new(&call_allocator);
 		if (!cs->resp) {
 			warning(("couldn't allocate response buffer: out of memory"));
 			return CKR_HOST_MEMORY;

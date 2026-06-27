@@ -242,7 +242,7 @@ typedef struct _GckRpcMessage {
 #define GCK_RPC_IO_WANT_READ  -2
 #define GCK_RPC_IO_WANT_WRITE -3
 
-GckRpcMessage *gck_rpc_message_new(EggBufferAllocator allocator);
+GckRpcMessage *gck_rpc_message_new(const EggBufferAllocator *allocator);
 
 void gck_rpc_message_free(GckRpcMessage * msg);
 

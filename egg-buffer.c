@@ -27,7 +27,11 @@
 
 #include "egg-buffer.h"
 
-#define DEFAULT_ALLOCATOR  ((EggBufferAllocator)realloc)
+const EggBufferAllocator egg_buffer_default_allocator = {
+	malloc, realloc, free
+};
+
+#define DEFAULT_ALLOCATOR  (&egg_buffer_default_allocator)
 
 int egg_buffer_init(EggBuffer * buffer, size_t reserve)
 {
@@ -36,7 +40,7 @@ int egg_buffer_init(EggBuffer * buffer, size_t reserve)
 
 int
 egg_buffer_init_full(EggBuffer * buffer, size_t reserve,
-		     EggBufferAllocator allocator)
+		     const EggBufferAllocator *allocator)
 {
 	memset(buffer, 0, sizeof(*buffer));
 
@@ -45,7 +49,7 @@ egg_buffer_init_full(EggBuffer * buffer, size_t reserve,
 	if (reserve == 0)
 		reserve = 64;
 
-	buffer->buf = (allocator) (NULL, reserve);
+	buffer->buf = (allocator->alloc) (reserve);
 	if (!buffer->buf) {
 		buffer->failures++;
 		return 0;
@@ -74,7 +78,7 @@ void egg_buffer_init_static(EggBuffer * buffer, unsigned char *buf, size_t len)
 
 void
 egg_buffer_init_allocated(EggBuffer * buffer, unsigned char *buf, size_t len,
-			  EggBufferAllocator allocator)
+			  const EggBufferAllocator *allocator)
 {
 	memset(buffer, 0, sizeof(*buffer));
 
@@ -105,12 +109,12 @@ void egg_buffer_uninit(EggBuffer * buffer)
 	 * then this memory is ownerd elsewhere and not to be freed.
 	 */
 	if (buffer->buf && buffer->allocator)
-		(buffer->allocator) (buffer->buf, 0);
+		(buffer->allocator->free) (buffer->buf);
 
 	memset(buffer, 0, sizeof(*buffer));
 }
 
-int egg_buffer_set_allocator(EggBuffer * buffer, EggBufferAllocator allocator)
+int egg_buffer_set_allocator(EggBuffer * buffer, const EggBufferAllocator *allocator)
 {
 	unsigned char *buf = NULL;
 
@@ -120,8 +124,8 @@ int egg_buffer_set_allocator(EggBuffer * buffer, EggBufferAllocator allocator)
 		return 1;
 
 	if (buffer->allocated_len) {
-		/* Reallocate memory block using new allocator */
-		buf = (allocator) (NULL, buffer->allocated_len);
+		/* Allocate memory block using new allocator */
+		buf = (allocator->alloc) (buffer->allocated_len);
 		if (buf == NULL)
 			return 0;
 
@@ -131,7 +135,7 @@ int egg_buffer_set_allocator(EggBuffer * buffer, EggBufferAllocator allocator)
 
 	/* If old wasn't static, then free it */
 	if (buffer->allocator && buffer->buf)
-		(buffer->allocator) (buffer->buf, 0);
+		(buffer->allocator->free) (buffer->buf);
 
 	buffer->buf = buf;
 	buffer->allocator = allocator;
@@ -166,7 +170,7 @@ int egg_buffer_reserve(EggBuffer * buffer, size_t len)
 	}
 
 	/* Reallocate built in buffer using allocator */
-	newbuf = (buffer->allocator) (buffer->buf, newlen);
+	newbuf = (buffer->allocator->realloc) (buffer->buf, newlen);
 	if (!newbuf) {
 		buffer->failures++;
 		return 0;
@@ -209,7 +213,7 @@ int egg_buffer_shrink(EggBuffer *buffer, size_t max_size)
 
 
 	/* Reallocate to smaller size */
-	newbuf = (buffer->allocator)(buffer->buf, newlen);
+	newbuf = (buffer->allocator->realloc)(buffer->buf, newlen);
 	if (!newbuf) {
 		buffer->failures++;
 		return 0;
@@ -468,7 +472,7 @@ int egg_buffer_add_string(EggBuffer * buffer, const char *str)
 
 int
 egg_buffer_get_string(EggBuffer * buffer, size_t offset, size_t * next_offset,
-		      char **str_ret, EggBufferAllocator allocator)
+		      char **str_ret, const EggBufferAllocator *allocator)
 {
 	uint32_t len;
 
@@ -497,7 +501,7 @@ egg_buffer_get_string(EggBuffer * buffer, size_t offset, size_t * next_offset,
 		return 0;
 
 	/* The passed allocator may be for non-pageable memory */
-	*str_ret = (allocator) (NULL, len + 1);
+	*str_ret = (allocator->alloc) (len + 1);
 	if (!*str_ret)
 		return 0;
 	memcpy(*str_ret, buffer->buf + offset, len);
@@ -534,7 +538,7 @@ int egg_buffer_add_stringv(EggBuffer * buffer, const char **strv)
 
 int
 egg_buffer_get_stringv(EggBuffer * buffer, size_t offset, size_t * next_offset,
-		       char ***strv_ret, EggBufferAllocator allocator)
+		       char ***strv_ret, const EggBufferAllocator *allocator)
 {
 	uint32_t n, i, j;
 	size_t len;
@@ -550,7 +554,7 @@ egg_buffer_get_stringv(EggBuffer * buffer, size_t offset, size_t * next_offset,
 
 	/* Then that number of strings */
 	len = (n + 1) * sizeof(char *);
-	*strv_ret = (char **)(allocator) (NULL, len);
+	*strv_ret = (char **)(allocator->alloc) (len);
 	if (!*strv_ret)
 		return 0;
 
@@ -564,7 +568,7 @@ egg_buffer_get_stringv(EggBuffer * buffer, size_t offset, size_t * next_offset,
 			/* Free all the strings on failure */
 			for (j = 0; j < i; ++j) {
 				if ((*strv_ret)[j])
-					(allocator) ((*strv_ret)[j], 0);
+					(allocator->free) ((*strv_ret)[j]);
 			}
 
 			return 0;

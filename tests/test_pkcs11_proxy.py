@@ -193,3 +193,28 @@ def test_ecdh_derive_key(pkcs11_session):
 def test_mechanism_list_contains_ecdh(pkcs11_session):
     mechanisms = pkcs11_session.token.slot.get_mechanisms()
     assert Mechanism.ECDH1_DERIVE in mechanisms, "ECDH1_DERIVE mechanism is not supported by the token"
+
+def test_repeated_calls_stay_consistent(setup_pkcs11_proxy_lib):
+    # Repeat the buffer-growing calls past the daemon's shrink interval (1000).
+    lib = pkcs11.lib(setup_pkcs11_proxy_lib)
+    token = lib.get_token(token_label="ProxyTestToken")
+
+    slot = token.slot
+    expected_mechs = sorted(slot.get_mechanisms())
+    expected_slots = [s.slot_id for s in lib.get_slots()]
+
+    rounds = 400
+    with token.open(user_pin="1234", rw=True) as session:
+        public_key = session.get_key(
+            label="ProxyTestExistingECKey",
+            key_type=KeyType.EC,
+            object_class=pkcs11.ObjectClass.PUBLIC_KEY,
+        )
+        expected_point = public_key[Attribute.EC_POINT]
+        expected_params = public_key[Attribute.EC_PARAMS]
+
+        for i in range(rounds):
+            assert sorted(slot.get_mechanisms()) == expected_mechs, f"mechanism list changed at round {i}"
+            assert [s.slot_id for s in lib.get_slots()] == expected_slots, f"slot list changed at round {i}"
+            assert public_key[Attribute.EC_POINT] == expected_point, f"EC_POINT changed at round {i}"
+            assert public_key[Attribute.EC_PARAMS] == expected_params, f"EC_PARAMS changed at round {i}"
