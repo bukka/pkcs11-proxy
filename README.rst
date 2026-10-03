@@ -8,7 +8,7 @@ This fork has the following additional features:
 - seccomp syscall filtering (only tested in inetd-mode)
 - getaddrinfo support for IPv6, fallback and DNS resolution
 - TLS-PSK support to optionally encrypt communication
-- read-only sessions option that presents tokens as write protected to clients
+- options to restrict client access: read-only sessions and disabled functions
 
 Plus a number of important bug fixes. This version passes the SoftHSM test
 suite.

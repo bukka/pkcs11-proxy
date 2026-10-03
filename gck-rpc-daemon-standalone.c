@@ -284,6 +284,11 @@ int main(int argc, char *argv[])
 		gck_rpc_log("Read-only sessions enabled");
 	}
 
+	if (!gck_rpc_layer_set_disabled_functions(gck_rpc_conf_get_disabled_functions())) {
+		fprintf(stderr, "invalid disabled_functions configuration\n");
+		exit(1);
+	}
+
 	path = gck_rpc_conf_get_so_path("PKCS11_DAEMON_SOCKET");
 	if (!path && argc == 3) {
 		path = argv[2];

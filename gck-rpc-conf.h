@@ -37,5 +37,6 @@ int gck_rpc_conf_get_tcp_keepidle(void);
 int gck_rpc_conf_get_tcp_keepintvl(void);
 int gck_rpc_conf_get_tcp_keepcnt(void);
 bool gck_rpc_conf_get_read_only_sessions(void);
+const char *gck_rpc_conf_get_disabled_functions(void);
 
 #endif // GCK_RPC_CONF_H

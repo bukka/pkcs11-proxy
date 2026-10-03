@@ -39,6 +39,7 @@ typedef struct {
 	int tcp_keepintvl;
 	int tcp_keepcnt;
 	bool read_only_sessions;
+	char disabled_functions[4096];
 	char psk_file[2048];
 	char log_file[2048];
 } gck_rpc_config_t;
@@ -95,6 +96,7 @@ static struct {
 	{"tcp_keepintvl", &gck_rpc_config.tcp_keepintvl, sizeof(gck_rpc_config.tcp_keepintvl), gck_rpc_set_int},
 	{"tcp_keepcnt", &gck_rpc_config.tcp_keepcnt, sizeof(gck_rpc_config.tcp_keepcnt), gck_rpc_set_int},
 	{"read_only_sessions", &gck_rpc_config.read_only_sessions, sizeof(gck_rpc_config.read_only_sessions), gck_rpc_set_bool},
+	{"disabled_functions", gck_rpc_config.disabled_functions, sizeof(gck_rpc_config.disabled_functions), gck_rpc_set_string},
 	{"psk_file", gck_rpc_config.psk_file, sizeof(gck_rpc_config.psk_file), gck_rpc_set_string},
 	{"log_file", gck_rpc_config.log_file, sizeof(gck_rpc_config.log_file), gck_rpc_set_string},
 	{NULL, NULL, 0, NULL}
@@ -108,6 +110,7 @@ static void gck_rpc_set_defaults(void)
 	gck_rpc_config.tcp_keepintvl = -1;
 	gck_rpc_config.tcp_keepcnt = -1;
 	gck_rpc_config.read_only_sessions = false;
+	gck_rpc_config.disabled_functions[0] = '\0';
 	gck_rpc_config.so_path[0] = '\0';
 	gck_rpc_config.psk_file[0] = '\0';
 	gck_rpc_config.log_file[0] = '\0';
@@ -222,4 +225,9 @@ int gck_rpc_conf_get_tcp_keepcnt(void)
 bool gck_rpc_conf_get_read_only_sessions(void)
 {
 	return gck_rpc_config.read_only_sessions;
+}
+
+const char *gck_rpc_conf_get_disabled_functions(void)
+{
+	return gck_rpc_config.disabled_functions[0] ? gck_rpc_config.disabled_functions : NULL;
 }

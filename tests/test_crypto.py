@@ -2,7 +2,7 @@ import os
 
 import pkcs11
 import pkcs11.util.ec
-from pkcs11 import Attribute, KeyType, Mechanism, KDF
+from pkcs11 import Attribute, KeyType, Mechanism, KDF, ObjectClass
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.backends import default_backend
@@ -113,3 +113,17 @@ def test_ecdh_derive_key(pkcs11_session):
 def test_mechanism_list_contains_ecdh(pkcs11_session):
     mechanisms = pkcs11_session.token.slot.get_mechanisms()
     assert Mechanism.ECDH1_DERIVE in mechanisms, "ECDH1_DERIVE mechanism is not supported by the token"
+
+def test_rsa_wrap_unwrap(pkcs11_session):
+    # CKM_AES_KEY_WRAP is not passed through by the proxy and older SoftHSM
+    # cannot unwrap with CKM_AES_CBC, so RSA wrapping is used
+    public_key, private_key = pkcs11_session.generate_keypair(KeyType.RSA, 2048)
+    key = pkcs11_session.generate_key(KeyType.AES, 128, template={Attribute.EXTRACTABLE: True})
+    wrapped = public_key.wrap_key(key, mechanism=Mechanism.RSA_PKCS)
+    unwrapped = private_key.unwrap_key(ObjectClass.SECRET_KEY, KeyType.AES, wrapped,
+                                       mechanism=Mechanism.RSA_PKCS)
+
+    iv = pkcs11_session.generate_random(128)
+    plaintext = b"0123456789abcdef" * 2
+    ciphertext = key.encrypt(plaintext, mechanism_param=iv)
+    assert unwrapped.decrypt(ciphertext, mechanism_param=iv) == plaintext

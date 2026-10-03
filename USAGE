@@ -81,32 +81,51 @@ slots: Slot 0           SoftHSM
   token flags:   rng, login required, PIN initialized, token initialized,
   other flags=0x40 serial num  :  1
 
-Read-only sessions
-==================
 
-The daemon can be configured to only open read-only sessions in the PKCS11
+Restricting client access
+=========================
+
+The daemon can restrict what clients are allowed to do with the PKCS11
 module. This is useful when the module itself cannot separate key management
 from key usage (SoftHSM for example) and the clients connecting through the
-proxy should only be able to use the keys.
-
-The option is set in the daemon configuration file referenced by
-PKCS11_PROXY_CONF_PATH. It is enforced by the daemon, so clients cannot
-bypass it by changing their own configuration.
+proxy should only be able to use the keys. The restrictions are enforced by
+the daemon, so clients cannot bypass them by changing their own
+configuration. The options are set in the daemon configuration file
+referenced by PKCS11_PROXY_CONF_PATH.
 
 $ cat /etc/pkcs11-proxy.conf
 read_only_sessions = true
+disabled_functions = C_WrapKey, C_DestroyObject
 
-When enabled, the daemon removes CKF_RW_SESSION from every C_OpenSession
-request. The session opened in the module is a read-only session and
-C_GetSessionInfo reports it as such. The daemon also reports the token as
-write protected (CKF_WRITE_PROTECTED) with no read/write sessions available
-in C_GetTokenInfo. Well behaved clients such as the Java SunPKCS11 provider
-then do not even request read/write sessions. Finally, C_InitToken, C_InitPIN
-and C_SetPIN are rejected with CKR_TOKEN_WRITE_PROTECTED.
+Read-only sessions
+------------------
+
+With read_only_sessions enabled, the daemon removes CKF_RW_SESSION from every
+C_OpenSession request. The session opened in the module is a read-only
+session and C_GetSessionInfo reports it as such. The daemon also reports the
+token as write protected (CKF_WRITE_PROTECTED) with no read/write sessions
+available in C_GetTokenInfo. Well behaved clients such as the Java SunPKCS11
+provider then do not even request read/write sessions. Finally, C_InitToken,
+C_InitPIN and C_SetPIN are rejected with CKR_TOKEN_WRITE_PROTECTED.
 
 As a result token objects cannot be created, modified or destroyed through
 the proxy and the module returns CKR_SESSION_READ_ONLY for such attempts.
 Session objects (CKA_TOKEN = CK_FALSE) and all cryptographic operations keep
 working. Note that using a key is a read operation, so this does not stop a
 client from wrapping an extractable key with C_WrapKey. Use CKA_EXTRACTABLE
-or CKA_WRAP_WITH_TRUSTED on the keys to prevent that.
+or CKA_WRAP_WITH_TRUSTED on the keys or disable C_WrapKey to prevent that.
+
+Disabled functions
+------------------
+
+The disabled_functions option takes a comma separated list of PKCS11
+function names. The daemon answers every call to a listed function with
+CKR_FUNCTION_NOT_SUPPORTED without passing it to the module and logs the
+rejected call. Any function can be listed except C_Initialize and C_Finalize,
+which the proxy needs to operate. The daemon refuses to start when the list
+contains an unknown name, so a typo cannot silently allow a call.
+
+Disabling C_WrapKey prevents key export even for keys that have to stay
+extractable for administrative purposes. The same applies to C_DestroyObject
+and key deletion. Both complement read-only sessions, which only cover
+modifications of token objects.

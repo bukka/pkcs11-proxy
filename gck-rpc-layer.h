@@ -10,6 +10,8 @@
  */
 
 /* Call to initialize the module and start listening, returns socket or -1 */
+int gck_rpc_layer_set_disabled_functions(const char *names);
+
 int gck_rpc_layer_initialize(const char *prefix, CK_FUNCTION_LIST_PTR funcs);
 
 /* Should be called to cleanup dispatcher */

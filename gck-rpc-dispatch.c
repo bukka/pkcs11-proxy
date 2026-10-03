@@ -2069,6 +2069,49 @@ static CK_RV rpc_C_GenerateRandom(CallState * cs)
  * DISPATCH THREAD HANDLING
  */
 
+static int disabled_calls[GCK_RPC_CALL_MAX];
+
+/* Parse a comma separated list of function names from the configuration */
+int gck_rpc_layer_set_disabled_functions(const char *names)
+{
+	char *copy, *name, *saveptr = NULL;
+	int i, call_id;
+
+	memset(disabled_calls, 0, sizeof(disabled_calls));
+	if (names == NULL || names[0] == '\0')
+		return 1;
+
+	copy = strdup(names);
+	if (copy == NULL)
+		return 0;
+
+	for (name = strtok_r(copy, ", \t", &saveptr); name != NULL;
+	     name = strtok_r(NULL, ", \t", &saveptr)) {
+		call_id = GCK_RPC_CALL_ERROR;
+		for (i = GCK_RPC_CALL_ERROR + 1; i < GCK_RPC_CALL_MAX; i++) {
+			if (strcmp(gck_rpc_calls[i].name, name) == 0) {
+				call_id = i;
+				break;
+			}
+		}
+		if (call_id == GCK_RPC_CALL_ERROR) {
+			gck_rpc_warn("unknown function in disabled_functions: %s", name);
+			free(copy);
+			return 0;
+		}
+		if (call_id == GCK_RPC_CALL_C_Initialize || call_id == GCK_RPC_CALL_C_Finalize) {
+			gck_rpc_warn("function %s cannot be disabled", name);
+			free(copy);
+			return 0;
+		}
+		disabled_calls[call_id] = 1;
+		gck_rpc_log("Disabled function %s", name);
+	}
+
+	free(copy);
+	return 1;
+}
+
 static int dispatch_call(CallState * cs)
 {
 	GckRpcMessage *req, *resp;
@@ -2087,6 +2130,12 @@ static int dispatch_call(CallState * cs)
 	if (!gck_rpc_message_prep(resp, req->call_id, GCK_RPC_RESPONSE)) {
 		gck_rpc_warn("couldn't prepare message");
 		return 0;
+	}
+
+	if (disabled_calls[req->call_id]) {
+		gck_rpc_log("Rejecting disabled function %s", gck_rpc_calls[req->call_id].name);
+		ret = CKR_FUNCTION_NOT_SUPPORTED;
+		goto respond;
 	}
 
 	switch (req->call_id) {
@@ -2186,6 +2235,7 @@ static int dispatch_call(CallState * cs)
 		}
 	}
 
+respond:
 	/* A filled in response */
 	if (ret == CKR_OK) {
 
