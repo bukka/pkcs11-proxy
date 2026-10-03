@@ -280,6 +280,10 @@ int main(int argc, char *argv[])
 
 	gck_rpc_log_init();
 
+	if (gck_rpc_conf_get_read_only_sessions()) {
+		gck_rpc_log("Read-only sessions enabled");
+	}
+
 	path = gck_rpc_conf_get_so_path("PKCS11_DAEMON_SOCKET");
 	if (!path && argc == 3) {
 		path = argv[2];

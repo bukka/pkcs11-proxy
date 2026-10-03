@@ -26,6 +26,7 @@
 #include "gck-rpc-layer.h"
 #include "gck-rpc-private.h"
 #include "gck-rpc-tls-psk.h"
+#include "gck-rpc-conf.h"
 
 #include "pkcs11/pkcs11.h"
 #include "pkcs11/pkcs11g.h"
@@ -1043,6 +1044,12 @@ static CK_RV rpc_C_GetTokenInfo(CallState * cs)
 	BEGIN_CALL(C_GetTokenInfo);
 	IN_ULONG(slot_id);
 	PROCESS_CALL((slot_id, &info));
+	if (_ret == CKR_OK && gck_rpc_conf_get_read_only_sessions()) {
+		/* Report the token as write protected */
+		info.flags |= CKF_WRITE_PROTECTED;
+		info.ulMaxRwSessionCount = 0;
+		info.ulRwSessionCount = 0;
+	}
 	OUT_TOKEN_INFO(info);
 	END_CALL;
 }
@@ -1092,6 +1099,9 @@ static CK_RV rpc_C_InitToken(CallState * cs)
 	IN_ULONG(slot_id);
 	IN_BYTE_ARRAY(pin, pin_len);
 	IN_SPACE_STRING(label, 32);
+	if (gck_rpc_conf_get_read_only_sessions()) {
+		_ret = CKR_TOKEN_WRITE_PROTECTED; goto _cleanup;
+	}
 	PROCESS_CALL((slot_id, pin, pin_len, label));
 	END_CALL;
 }
@@ -1122,6 +1132,10 @@ static CK_RV rpc_C_OpenSession(CallState * cs)
 	BEGIN_CALL(C_OpenSession);
 	IN_ULONG(slot_id);
 	IN_ULONG(flags);
+	if ((flags & CKF_RW_SESSION) && gck_rpc_conf_get_read_only_sessions()) {
+		gck_rpc_log("Downgrading read/write session request to read-only on slot %li", slot_id);
+		flags &= ~CKF_RW_SESSION;
+	}
 	PROCESS_CALL((slot_id, flags, NULL, NULL, &session));
 	if (_ret == CKR_OK) {
 		int i;
@@ -1251,6 +1265,9 @@ static CK_RV rpc_C_InitPIN(CallState * cs)
 	BEGIN_CALL(C_InitPIN);
 	IN_ULONG(session);
 	IN_BYTE_ARRAY(pin, pin_len);
+	if (gck_rpc_conf_get_read_only_sessions()) {
+		_ret = CKR_TOKEN_WRITE_PROTECTED; goto _cleanup;
+	}
 	PROCESS_CALL((session, pin, pin_len));
 	END_CALL;
 }
@@ -1267,6 +1284,9 @@ static CK_RV rpc_C_SetPIN(CallState * cs)
 	IN_ULONG(session);
 	IN_BYTE_ARRAY(old_pin, old_len);
 	IN_BYTE_ARRAY(new_pin, new_len);
+	if (gck_rpc_conf_get_read_only_sessions()) {
+		_ret = CKR_TOKEN_WRITE_PROTECTED; goto _cleanup;
+	}
 	PROCESS_CALL((session, old_pin, old_len, new_pin, new_len));
 	END_CALL;
 }
