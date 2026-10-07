@@ -36,8 +36,6 @@ def test_invalid_configuration_stops_the_daemon(tmp_path, names):
     conf_path = tmp_path / "pkcs11-daemon.conf"
     conf_path.write_text(f"disabled_functions = {names}\n")
     daemon = ProxyDaemon(2399, {"PKCS11_PROXY_CONF_PATH": str(conf_path)})
-    daemon.start()
-    try:
-        assert daemon.process.wait(timeout=5) != 0
-    finally:
-        daemon.stop()
+    with pytest.raises(RuntimeError, match="exited with 1"):
+        daemon.start()
+    daemon.stop()
