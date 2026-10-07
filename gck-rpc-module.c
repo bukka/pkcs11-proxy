@@ -1383,6 +1383,13 @@ static CK_RV rpc_C_Initialize(CK_VOID_PTR init_args)
 
 	gck_rpc_log_init();
 
+	/* Only to the log file, the host application owns stderr */
+	if (gck_rpc_log_get_file()) {
+		char version_line[128];
+		snprintf(version_line, sizeof(version_line), "Initializing pkcs11-proxy %s", gck_rpc_version());
+		gck_rpc_log_to_file(version_line);
+	}
+
 	debug(("C_Initialize: enter"));
 
 	if (init_args != NULL) {

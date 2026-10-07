@@ -305,6 +305,8 @@ int gck_rpc_log_to_file(const char *msg);
 
 void gck_rpc_log(const char *msg, ...);
 
+const char *gck_rpc_version(void);
+
 void gck_rpc_warn(const char *msg, ...);
 
 void gck_rpc_debug(const char *msg, ...);

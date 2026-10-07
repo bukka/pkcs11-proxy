@@ -1,3 +1,11 @@
+pkcs11-proxy (0.5-1) unstable; urgency=medium
+
+  * Add read_only_sessions and disabled_functions daemon options
+  * Fix daemon shutdown with connected clients
+  * Report the version in the logs and with pkcs11-daemon --version
+
+ -- Jakub Zelenka <bukka@php.net>  Wed, 07 Oct 2026 12:07:45 +0200
+
 pkcs11-proxy (0.4-1ubuntu4) trusty; urgency=medium
 
   * debian updates

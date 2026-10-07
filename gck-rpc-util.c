@@ -54,6 +54,21 @@
 
 static FILE *gck_rpc_log_fp = NULL;
 
+/* Version with the git revision when built from a checkout */
+const char *gck_rpc_version(void)
+{
+	static char version[64];
+
+	if (!version[0]) {
+		if (PKCS11_PROXY_GIT_REVISION[0])
+			snprintf(version, sizeof(version), "%s (%s)",
+				 PKCS11_PROXY_VERSION, PKCS11_PROXY_GIT_REVISION);
+		else
+			snprintf(version, sizeof(version), "%s", PKCS11_PROXY_VERSION);
+	}
+	return version;
+}
+
 /*
  * Return a per-thread identifier for logging. On Linux this is the kernel
  * thread id (matches /proc/<pid>/task), which is what we want for correlating
