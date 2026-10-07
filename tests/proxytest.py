@@ -1,5 +1,6 @@
 import os
 import platform
+import socket
 import subprocess
 import time
 
@@ -59,9 +60,23 @@ class ProxyDaemon:
         self.env = env or {}
         self.process = None
 
-    def start(self):
+    def start(self, timeout=5):
         env = {**os.environ, "PKCS11_DAEMON_SOCKET": self.socket, **self.env}
         self.process = subprocess.Popen([daemon_path(), softhsm_library_path()], env=env)
+        self.wait_until_listening(timeout)
+
+    def wait_until_listening(self, timeout):
+        host, port = self.socket.split("://")[1].rsplit(":", 1)
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if self.process.poll() is not None:
+                raise RuntimeError(f"pkcs11-daemon exited with {self.process.returncode}")
+            try:
+                socket.create_connection((host, int(port)), timeout=0.2).close()
+                return
+            except OSError:
+                time.sleep(0.05)
+        raise RuntimeError(f"pkcs11-daemon is not listening on {self.socket}")
 
     def stop(self):
         if self.process is None:
@@ -94,7 +109,6 @@ class DaemonRegistry:
             daemon = ProxyDaemon(2345)
             if start_daemon():
                 daemon.start()
-                time.sleep(0.5)
             return daemon
 
         port = self.next_port
@@ -107,7 +121,6 @@ class DaemonRegistry:
                 f.write(f"{name} = {value}\n")
         daemon = ProxyDaemon(port, {"PKCS11_PROXY_CONF_PATH": conf_path})
         daemon.start()
-        time.sleep(0.5)
         return daemon
 
     def stop_all(self):

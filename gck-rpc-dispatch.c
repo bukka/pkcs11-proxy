@@ -2849,25 +2849,25 @@ void gck_rpc_layer_uninitialize(void)
 		unlink(pkcs11_socket_path);
 	pkcs11_socket_path[0] = 0;
 
-	/* Stop all of the dispatch threads */
+	/* Take over the dispatcher list and make every thread leave its read.
+	 * The threads lock the mutex in call_uninit, so it must not be held
+	 * while joining them. Only the read side is shut down so the thread
+	 * can still send the TLS close alert before it closes the socket. */
 	pthread_mutex_lock(&pkcs11_dispatchers_mutex);
-	for (ds = pkcs11_dispatchers; ds; ds = next) {
-		CallState *c = &ds->cs;
-		next = ds->next;
-
-		/* Forcibly shutdown the connection */
-		if (c && c->sock != -1)
-			if (shutdown(c->sock, SHUT_RDWR) == 0)
-				c->sock = -1;
-
-		pthread_join(ds->thread, NULL);
-
-		/* This is always closed by dispatch thread */
-		if (c)
-			assert(c->sock == -1);
-		gck_rpc_free_ds(ds);
+	ds = pkcs11_dispatchers;
+	pkcs11_dispatchers = NULL;
+	for (next = ds; next; next = next->next) {
+		if (next->cs.sock != -1)
+			shutdown(next->cs.sock, SHUT_RD);
 	}
 	pthread_mutex_unlock(&pkcs11_dispatchers_mutex);
+
+	for (; ds; ds = next) {
+		next = ds->next;
+		pthread_join(ds->thread, NULL);
+		assert(ds->cs.sock == -1);
+		gck_rpc_free_ds(ds);
+	}
 
 	pkcs11_module = NULL;
 }
