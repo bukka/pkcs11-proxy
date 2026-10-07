@@ -1,10 +1,37 @@
 pkcs11-proxy (0.5-1) unstable; urgency=medium
 
-  * Add read_only_sessions and disabled_functions daemon options
-  * Fix daemon shutdown with connected clients
-  * Report the version in the logs and with pkcs11-daemon --version
+  * New daemon options to restrict client access: read_only_sessions
+    downgrades every session to read-only and reports the token as write
+    protected, disabled_functions rejects listed PKCS#11 functions.
+  * Configuration file support through PKCS11_PROXY_CONF_PATH with so_path,
+    so_recv_timeout, so_keepalive, tcp_keepidle, tcp_keepintvl, tcp_keepcnt,
+    psk_file, log_file, read_only_sessions and disabled_functions options.
+  * Socket timeout and keepalive options are applied to accepted connections
+    so dead peers are detected and their sessions closed.
+  * Logging to a file through PKCS11_PROXY_LOG_FILE with timestamps, process
+    and thread IDs, and much more detailed debug logging.
+  * Version reported by pkcs11-daemon --version and logged on startup by the
+    daemon and on C_Initialize by the proxy library.
+  * TLS-PSK: TLS 1.2 and newer via TLS_method, custom OpenSSL library
+    context, per-thread TLS context, clients receive the identity hint,
+    read and write errors and retries handled properly.
+  * ECDH: CKM_ECDH1_DERIVE parameters are serialized and the mechanism is
+    listed, mechanisms with an IV parameter such as AES CBC pass through.
+  * Fix daemon shutdown deadlock and socket handling with connected clients.
+  * Fix memory leaks in the call state pool and dispatch state, free the TLS
+    state, shrink grown message buffers and use proper allocator functions.
+  * Fix dispatcher mutex left locked on accept errors, missing TLS allocation
+    check, call state read and write types, segfault in ECDH1_DERIVE
+    parameter deserialization and invalid move when purging mechanisms.
+  * Fix socket path length to match sun_path and zero its last byte.
+  * Add missing seccomp rules and properly disable seccomp when not built in.
+  * Build: CMake rewrite requiring CMake 3.10 and OpenSSL 1.1.1, macOS
+    support, debug, debug output and optimization options, install targets
+    respecting the OS layout, PKCS#11 header updated to 2.40.
+  * Python test suite run in CI over TCP and TLS, LICENSE file added,
+    p11proxy-mitm moved to tools.
 
- -- Jakub Zelenka <bukka@php.net>  Wed, 07 Oct 2026 12:07:45 +0200
+ -- Jakub Zelenka <bukka@php.net>  Wed, 07 Oct 2026 12:47:32 +0200
 
 pkcs11-proxy (0.4-1ubuntu4) trusty; urgency=medium
 
