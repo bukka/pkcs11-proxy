@@ -1,4 +1,4 @@
-pkcs11-proxy (0.5-1) unstable; urgency=medium
+pkcs11-proxy (0.5.0-1) unstable; urgency=medium
 
   * New daemon options to restrict client access: read_only_sessions
     downgrades every session to read-only and reports the token as write

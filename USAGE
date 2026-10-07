@@ -42,7 +42,7 @@ library logs it on C_Initialize when a log file is configured, so it is easy
 to check what a deployment runs.
 
 $ pkcs11-daemon --version
-pkcs11-daemon 0.5 (7ccbfb3)
+pkcs11-daemon 0.5.0 (v0.5.0-3-g1a2b3c4)
 
 
 IPv6 and DNS

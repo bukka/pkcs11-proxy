@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(pkcs11-proxy VERSION 0.5 LANGUAGES C)
+project(pkcs11-proxy VERSION 0.5.0 LANGUAGES C)
 # Ensure compatibility with older CMake policies
 if (COMMAND cmake_policy)
     cmake_policy(SET CMP0003 NEW)
@@ -27,6 +27,10 @@ if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
         OUTPUT_VARIABLE PKCS11_PROXY_GIT_REVISION
         OUTPUT_STRIP_TRAILING_WHITESPACE
         ERROR_QUIET)
+    # A release build on the tag only shows the version
+    if(PKCS11_PROXY_GIT_REVISION MATCHES "^v?${PROJECT_VERSION}$")
+        set(PKCS11_PROXY_GIT_REVISION "")
+    endif()
 endif()
 
 # Generate config.h
