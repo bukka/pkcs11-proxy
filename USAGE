@@ -33,6 +33,18 @@ slots: Slot 0           SoftHSM
   other flags=0x40 serial num  :  1
 
 
+Version
+=======
+
+The version, with the git revision when built from a checkout, is printed by
+pkcs11-daemon --version. The daemon logs it when it starts and the proxy
+library logs it on C_Initialize when a log file is configured, so it is easy
+to check what a deployment runs.
+
+$ pkcs11-daemon --version
+pkcs11-daemon 0.5 (7ccbfb3)
+
+
 IPv6 and DNS
 ============
 

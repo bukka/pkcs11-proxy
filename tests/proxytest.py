@@ -2,6 +2,7 @@ import os
 import platform
 import socket
 import subprocess
+import sys
 import time
 
 TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -10,6 +11,7 @@ BUILD_DIR = os.path.join(TESTS_DIR, "..", "build")
 TOKEN_LABEL = "ProxyTestToken"
 USER_PIN = "1234"
 EC_KEY_LABEL = "ProxyTestExistingECKey"
+OWN_DAEMON_PORT = 2398
 
 PSK_FILE = os.path.join(TESTS_DIR, "pkcs11_tls.psk")
 PSK_CONTENT = "client:0df6c00be91c6a334589f699365b3125acb9e2232203d2e05ee61af848c103a4"
@@ -127,3 +129,39 @@ class DaemonRegistry:
         for daemon in reversed(list(self.daemons.values())):
             daemon.stop()
         self.daemons = {}
+
+
+def start_hold_session_client(daemon, env=None):
+    """Run hold_session.py against the daemon and return it once connected"""
+    client_env = {
+        **os.environ,
+        "PKCS11_PROXY_SOCKET": daemon.socket,
+        "PKCS11_TEST_PROXY_LIB": proxy_library_path(),
+        "PKCS11_TEST_TOKEN_LABEL": TOKEN_LABEL,
+        "PKCS11_TEST_USER_PIN": USER_PIN,
+        **(env or {}),
+    }
+    script = os.path.join(TESTS_DIR, "hold_session.py")
+    client = subprocess.Popen([sys.executable, script], env=client_env, stdin=subprocess.PIPE,
+                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    if client.stdout.readline().strip() != b"ready":
+        client.kill()
+        raise RuntimeError("hold_session.py did not connect")
+    return client
+
+
+def stop_hold_session_client(client):
+    client.stdin.close()
+    client.wait(timeout=10)
+
+
+def wait_for_log(log_file, text, timeout=15, process=None):
+    """Wait until the log file contains the text"""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if os.path.exists(log_file) and text in open(log_file).read():
+            return
+        if process is not None and process.poll() is not None:
+            raise RuntimeError(f"process exited with {process.returncode}")
+        time.sleep(0.1)
+    raise TimeoutError(f"{text!r} not found in {log_file}")

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(pkcs11-proxy C)
+project(pkcs11-proxy VERSION 0.5 LANGUAGES C)
 # Ensure compatibility with older CMake policies
 if (COMMAND cmake_policy)
     cmake_policy(SET CMP0003 NEW)
@@ -15,6 +15,18 @@ if(ENABLE_DEBUG_OUTPUT)
     set(DEBUG_OUTPUT_VALUE 1)
 else()
     set(DEBUG_OUTPUT_VALUE 0)
+endif()
+
+# Git revision for version reporting, empty outside a git checkout
+set(PKCS11_PROXY_GIT_REVISION "")
+find_package(Git QUIET)
+if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} describe --always --dirty
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE PKCS11_PROXY_GIT_REVISION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET)
 endif()
 
 # Generate config.h
@@ -66,7 +78,7 @@ link_directories(${OPENSSL_LIBRARY_DIRS}) # Ensure library paths are included
 
 # Define shared library for pkcs11-proxy
 add_library(pkcs11-proxy SHARED ${PKCS11_PROXY_SRCS})
-set_target_properties(pkcs11-proxy PROPERTIES VERSION 0.1 SOVERSION 0)
+set_target_properties(pkcs11-proxy PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION 0)
 
 # Link OpenSSL and other necessary libraries
 target_link_libraries(pkcs11-proxy ${OPENSSL_LIBRARIES} pthread)

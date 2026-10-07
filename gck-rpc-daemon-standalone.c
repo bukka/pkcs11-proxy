@@ -201,7 +201,8 @@ static int is_running = 1;
 
 static int usage(void)
 {
-	fprintf(stderr, "usage: pkcs11-daemon pkcs11-module [<socket>|\"-\"]\n\tUsing \"-\" results in a single-thread inetd-type daemon\n");
+	fprintf(stderr, "usage: pkcs11-daemon pkcs11-module [<socket>|\"-\"]\n\tUsing \"-\" results in a single-thread inetd-type daemon\n"
+		"       pkcs11-daemon --version\n");
 	exit(2);
 }
 
@@ -227,6 +228,11 @@ int main(int argc, char *argv[])
 	CK_RV rv;
 	CK_C_INITIALIZE_ARGS init_args;
 	GckRpcTlsPskCtx *tls_ctx;
+
+	if (argc == 2 && strcmp(argv[1], "--version") == 0) {
+		printf("pkcs11-daemon %s\n", gck_rpc_version());
+		return 0;
+	}
 
 	/* The module to load is the argument */
 	if (argc != 2 && argc != 3)
@@ -279,6 +285,8 @@ int main(int argc, char *argv[])
 	}
 
 	gck_rpc_log_init();
+
+	gck_rpc_log("Starting pkcs11-daemon %s", gck_rpc_version());
 
 	if (gck_rpc_conf_get_read_only_sessions()) {
 		gck_rpc_log("Read-only sessions enabled");

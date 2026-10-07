@@ -6,7 +6,7 @@ import pkcs11
 
 import pkcs11_raw
 import proxytest
-from proxytest import DaemonRegistry
+from proxytest import DaemonRegistry, ProxyDaemon
 
 _registry = None
 _current_socket = None
@@ -108,3 +108,15 @@ def raw_module(pkcs11_lib, daemon):
     if daemon is None:
         pytest.skip("requires the proxy library")
     return pkcs11_raw.RawModule(proxytest.proxy_library_path())
+
+
+
+@pytest.fixture
+def own_daemon(tmp_path):
+    """Default daemon for one test, logging to a file"""
+    if not proxytest.use_proxy():
+        pytest.skip("requires pkcs11-daemon")
+    daemon = ProxyDaemon(proxytest.OWN_DAEMON_PORT, {"PKCS11_PROXY_LOG_FILE": str(tmp_path / "daemon.log")})
+    daemon.start()
+    yield daemon
+    daemon.stop()
