@@ -152,12 +152,17 @@ def run_client_script(daemon, name, timeout=30):
 
 def start_hold_session_client(daemon, env=None):
     """Run hold_session.py against the daemon and return it once connected"""
-    script = os.path.join(TESTS_DIR, "hold_session.py")
+    return start_client_script(daemon, "hold_session.py", env)
+
+
+def start_client_script(daemon, name, env=None):
+    """Run a client script that prints ready and then waits for stdin to close"""
+    script = os.path.join(TESTS_DIR, name)
     client = subprocess.Popen([sys.executable, script], env=client_env(daemon, env), stdin=subprocess.PIPE,
                               stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     if client.stdout.readline().strip() != b"ready":
         client.kill()
-        raise RuntimeError("hold_session.py did not connect")
+        raise RuntimeError(f"{name} did not get ready")
     return client
 
 
@@ -176,3 +181,8 @@ def wait_for_log(log_file, text, timeout=15, process=None):
             raise RuntimeError(f"process exited with {process.returncode}")
         time.sleep(0.1)
     raise TimeoutError(f"{text!r} not found in {log_file}")
+
+
+def count_in_log(log_file, text):
+    with open(log_file) as f:
+        return f.read().count(text)

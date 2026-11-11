@@ -217,7 +217,7 @@ typedef struct _CallState {
 } CallState;
 
 /* Maximum number of idle calls */
-#define MAX_CALL_STATE_POOL 8
+static unsigned int max_call_state_pool = 0;
 
 /* All call unused call states are in this list */
 static CallState *call_state_pool = NULL;
@@ -787,7 +787,7 @@ static CK_RV call_done(CallState * cs, CK_RV ret)
 		/* Try and stash it away for later use */
 		pthread_mutex_lock(&call_state_mutex);
 
-		if (n_call_state_pool < MAX_CALL_STATE_POOL) {
+		if (n_call_state_pool < max_call_state_pool) {
 			cs->call_status = CALL_READY;
 			assert(cs->next == NULL);
 			cs->next = call_state_pool;
@@ -1398,6 +1398,7 @@ static CK_RV rpc_C_Initialize(CK_VOID_PTR init_args)
 	}
 
 	gck_rpc_log_init();
+	max_call_state_pool = gck_rpc_conf_get_pool_size();
 
 	/* Only to the log file, the host application owns stderr */
 	if (gck_rpc_log_get_file()) {
