@@ -131,9 +131,9 @@ class DaemonRegistry:
         self.daemons = {}
 
 
-def start_hold_session_client(daemon, env=None):
-    """Run hold_session.py against the daemon and return it once connected"""
-    client_env = {
+def client_env(daemon, env=None):
+    """Environment for a client script using the daemon from another process"""
+    return {
         **os.environ,
         "PKCS11_PROXY_SOCKET": daemon.socket,
         "PKCS11_TEST_PROXY_LIB": proxy_library_path(),
@@ -141,8 +141,19 @@ def start_hold_session_client(daemon, env=None):
         "PKCS11_TEST_USER_PIN": USER_PIN,
         **(env or {}),
     }
+
+
+def run_client_script(daemon, name, timeout=30):
+    """Run a client script against the daemon and return its exit code"""
+    script = os.path.join(TESTS_DIR, name)
+    return subprocess.run([sys.executable, script], env=client_env(daemon),
+                          stderr=subprocess.DEVNULL, timeout=timeout).returncode
+
+
+def start_hold_session_client(daemon, env=None):
+    """Run hold_session.py against the daemon and return it once connected"""
     script = os.path.join(TESTS_DIR, "hold_session.py")
-    client = subprocess.Popen([sys.executable, script], env=client_env, stdin=subprocess.PIPE,
+    client = subprocess.Popen([sys.executable, script], env=client_env(daemon, env), stdin=subprocess.PIPE,
                               stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     if client.stdout.readline().strip() != b"ready":
         client.kill()
