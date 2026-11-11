@@ -58,6 +58,26 @@ static char tls_psk_key_filename[MAXPATHLEN] = { 0, };
  * TLS-PSK (pre-shared key) functionality
  */
 
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+/* Never freed as threads keep references to it */
+static OSSL_LIB_CTX *tls_libctx = NULL;
+static CRYPTO_ONCE tls_libctx_once = CRYPTO_ONCE_STATIC_INIT;
+
+static void
+tls_libctx_init(void)
+{
+	tls_libctx = OSSL_LIB_CTX_new();
+}
+
+static OSSL_LIB_CTX *
+tls_libctx_get(void)
+{
+	if (!CRYPTO_THREAD_run_once(&tls_libctx_once, tls_libctx_init))
+		return NULL;
+	return tls_libctx;
+}
+#endif
+
 /* Utility function to decode a single hex char.
  *
  * Returns value as integer, or -1 on invalid hex char (not 0-9, a-f or A-F).
@@ -227,12 +247,12 @@ gck_rpc_init_tls_psk(GckRpcTlsPskCtx *tls_ctx, const char *key_filename,
 	assert(caller == GCK_RPC_TLS_PSK_CLIENT || caller == GCK_RPC_TLS_PSK_SERVER);
 
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-	tls_ctx->libctx = OSSL_LIB_CTX_new();
-	if (tls_ctx->libctx == NULL) {
+	OSSL_LIB_CTX *libctx = tls_libctx_get();
+	if (libctx == NULL) {
 		gck_rpc_warn("failed to create OpenSSL library context");
 		return 0;
 	}
-	tls_ctx->ssl_ctx = SSL_CTX_new_ex(tls_ctx->libctx, NULL, TLS_method());
+	tls_ctx->ssl_ctx = SSL_CTX_new_ex(libctx, NULL, TLS_method());
 #else
 	/* Global OpenSSL initialization (legacy) */
 	SSL_load_error_strings();
@@ -242,10 +262,6 @@ gck_rpc_init_tls_psk(GckRpcTlsPskCtx *tls_ctx, const char *key_filename,
 #endif
 
 	if (tls_ctx->ssl_ctx == NULL) {
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-		OSSL_LIB_CTX_free(tls_ctx->libctx);
-		tls_ctx->libctx = NULL;
-#endif
 		gck_rpc_warn("can't initialize SSL_CTX");
 		return 0;
 	}
@@ -254,10 +270,6 @@ gck_rpc_init_tls_psk(GckRpcTlsPskCtx *tls_ctx, const char *key_filename,
 	if (!SSL_CTX_set_min_proto_version(tls_ctx->ssl_ctx, TLS1_2_VERSION))	{
 		SSL_CTX_free(tls_ctx->ssl_ctx);
 		tls_ctx->ssl_ctx = NULL;
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-		OSSL_LIB_CTX_free(tls_ctx->libctx);
-		tls_ctx->libctx = NULL;
-#endif
 		gck_rpc_warn("cannot set minimal protocol version to TLS 1.2");
 		return 0;
 	}
@@ -266,10 +278,6 @@ gck_rpc_init_tls_psk(GckRpcTlsPskCtx *tls_ctx, const char *key_filename,
 	if (!SSL_CTX_set_max_proto_version(tls_ctx->ssl_ctx, TLS1_2_VERSION)) {
 		SSL_CTX_free(tls_ctx->ssl_ctx);
 		tls_ctx->ssl_ctx = NULL;
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-		OSSL_LIB_CTX_free(tls_ctx->libctx);
-		tls_ctx->libctx = NULL;
-#endif
 		gck_rpc_warn("cannot set maximal protocol version to TLS 1.2");
 		return 0;
 	}
@@ -373,10 +381,6 @@ gck_rpc_close_tls_ctx(GckRpcTlsPskCtx *tls_ctx)
 	if (tls_ctx->ssl_ctx) {
 		SSL_CTX_free(tls_ctx->ssl_ctx);
 		tls_ctx->ssl_ctx = NULL;
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-		OSSL_LIB_CTX_free(tls_ctx->libctx);
-		tls_ctx->libctx = NULL;
-#endif
 	}
 }
 
