@@ -535,6 +535,22 @@ static void call_destroy(void *value)
 	}
 }
 
+static void call_pool_destroy(void)
+{
+	CallState *cs;
+
+	pthread_mutex_lock(&call_state_mutex);
+
+	while (call_state_pool) {
+		cs = call_state_pool;
+		call_state_pool = cs->next;
+		call_destroy(cs);
+	}
+	n_call_state_pool = 0;
+
+	pthread_mutex_unlock(&call_state_mutex);
+}
+
 static CK_RV call_lookup(CallState ** ret)
 {
 	CallState *cs = NULL;
@@ -1440,6 +1456,9 @@ static CK_RV rpc_C_Initialize(CK_VOID_PTR init_args)
 			ret = CKR_CRYPTOKI_ALREADY_INITIALIZED;
 			goto done;
 		}
+
+		/* Connections inherited by a forked child belong to the parent */
+		call_pool_destroy();
 	}
 
 	/* Lookup the socket path, append '.pkcs11' if it is a domain socket. */
@@ -1536,13 +1555,7 @@ static CK_RV rpc_C_Finalize(CK_VOID_PTR reserved)
 	if (ret != CKR_OK)
 		warning(("finalizing the daemon returned an error: %d", ret));
 
-	/* Cleanup the call state pool */
-	while (call_state_pool) {
-		cs = call_state_pool;
-		call_state_pool = cs->next;
-		call_destroy(cs);
-	}
-	n_call_state_pool = 0;
+	call_pool_destroy();
 
 	/* This should stop all other calls in */
 	pkcs11_initialized = 0;
