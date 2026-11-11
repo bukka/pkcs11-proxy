@@ -1,3 +1,15 @@
+pkcs11-proxy (0.6.0-1) unstable; urgency=medium
+
+  * New pool_size client option setting how many idle connections the proxy
+    library keeps. Applications with more parallel calls than the pool size
+    lost sessions and kept reconnecting.
+  * Fix crash when a thread ends after its TLS connection was closed by
+    another thread. One OpenSSL library context is now shared and never
+    freed.
+  * Fix C_Initialize in a forked child reusing the connections of the parent.
+
+ -- Jakub Zelenka <bukka@php.net>  Wed, 11 Nov 2026 14:31:46 +0100
+
 pkcs11-proxy (0.5.0-1) unstable; urgency=medium
 
   * New daemon options to restrict client access: read_only_sessions
