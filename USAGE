@@ -94,6 +94,25 @@ slots: Slot 0           SoftHSM
   other flags=0x40 serial num  :  1
 
 
+Connection pool
+===============
+
+The proxy library opens a connection to the daemon for every call that runs
+at the same time as another one and keeps idle connections in a pool for
+later calls. The pool_size option in the client configuration file referenced
+by PKCS11_PROXY_CONF_PATH sets how many idle connections are kept. The
+default is 8. Connections above the limit are closed when their call ends.
+
+$ cat /etc/pkcs11-proxy.conf
+pool_size = 32
+
+The daemon closes the sessions opened through a connection when that
+connection is closed. An application that makes more calls in parallel than
+the pool size can therefore lose sessions and pays for a new connection, and
+a TLS handshake when TLS is used, on such calls. Set pool_size to at least
+the number of threads that use the library at the same time.
+
+
 Restricting client access
 =========================
 

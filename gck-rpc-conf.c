@@ -30,6 +30,7 @@
 
 #define GCK_RPC_DEFAULT_CONF_PATH "/etc/pkcs11-proxy.conf"
 #define GCK_RPC_LINE_BUFFER_SIZE 1024
+#define GCK_RPC_DEFAULT_POOL_SIZE 8
 
 typedef struct {
 	char so_path[107];
@@ -42,6 +43,7 @@ typedef struct {
 	char disabled_functions[4096];
 	char psk_file[2048];
 	char log_file[2048];
+	int pool_size;
 } gck_rpc_config_t;
 
 static gck_rpc_config_t gck_rpc_config;
@@ -99,6 +101,7 @@ static struct {
 	{"disabled_functions", gck_rpc_config.disabled_functions, sizeof(gck_rpc_config.disabled_functions), gck_rpc_set_string},
 	{"psk_file", gck_rpc_config.psk_file, sizeof(gck_rpc_config.psk_file), gck_rpc_set_string},
 	{"log_file", gck_rpc_config.log_file, sizeof(gck_rpc_config.log_file), gck_rpc_set_string},
+	{"pool_size", &gck_rpc_config.pool_size, sizeof(gck_rpc_config.pool_size), gck_rpc_set_int},
 	{NULL, NULL, 0, NULL}
 };
 
@@ -114,6 +117,7 @@ static void gck_rpc_set_defaults(void)
 	gck_rpc_config.so_path[0] = '\0';
 	gck_rpc_config.psk_file[0] = '\0';
 	gck_rpc_config.log_file[0] = '\0';
+	gck_rpc_config.pool_size = GCK_RPC_DEFAULT_POOL_SIZE;
 }
 
 static bool gck_rpc_parse_config_file(const char *filename)
@@ -230,4 +234,9 @@ bool gck_rpc_conf_get_read_only_sessions(void)
 const char *gck_rpc_conf_get_disabled_functions(void)
 {
 	return gck_rpc_config.disabled_functions[0] ? gck_rpc_config.disabled_functions : NULL;
+}
+
+int gck_rpc_conf_get_pool_size(void)
+{
+	return gck_rpc_config.pool_size > 0 ? gck_rpc_config.pool_size : GCK_RPC_DEFAULT_POOL_SIZE;
 }
