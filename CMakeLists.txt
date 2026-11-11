@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(pkcs11-proxy VERSION 0.5.0 LANGUAGES C)
+project(pkcs11-proxy VERSION 0.6.0 LANGUAGES C)
 # Ensure compatibility with older CMake policies
 if (COMMAND cmake_policy)
     cmake_policy(SET CMP0003 NEW)
